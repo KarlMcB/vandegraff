@@ -1,0 +1,2097 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Van de Graaff Lab</title>
+<meta name="description" content="A Van de Graaff generator simulator for high school physics: 21 guided electrostatics demonstrations plus a free-play bench.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a dark lab "stage" on the left that you operate, a notebook panel on the right that walks Predict -> Test -> Explain. */
+:root{
+  --bg:#e8ecf1; --surface:#ffffff; --surface-2:#f2f5f8; --ink:#16202c; --ink-2:#4c5a6b; --line:#d2d9e2;
+  --accent:#f2b705; --accent-ink:#241b00; --accent-soft:#fff3c9;
+  --neg:#1d5bd8; --pos:#cf352d; --ok:#177a45; --ok-soft:#e1f3e8; --warn:#9a5a00; --warn-soft:#fff1d6;
+  --stage:#1a2330;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e131a; --surface:#171f29; --surface-2:#1f2935; --ink:#e7ecf2; --ink-2:#9fadbd; --line:#2e3a49;
+    --accent:#f6c318; --accent-ink:#1f1700; --accent-soft:#3a3007;
+    --neg:#7bb0ff; --pos:#ff8377; --ok:#5ccb8e; --ok-soft:#143524; --warn:#f3c267; --warn-soft:#3a2c0c;
+    --stage:#141b25; color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--f-body);min-height:100dvh;display:flex;flex-direction:column}
+button,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+
+.top{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;font:700 23px/1 var(--f-display);letter-spacing:.03em;text-transform:uppercase;margin-right:4px}
+.brand svg{width:26px;height:30px;flex:none}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);padding:2px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:7px;font:600 17px/1.1 var(--f-display);letter-spacing:.02em;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.seg button[disabled]{opacity:.4;cursor:not-allowed}
+.demo-nav{display:flex;align-items:center;gap:4px;flex:1 1 260px;min-width:0}
+.demo-nav .pick{flex:1;min-width:0;text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:6px 12px;font:600 18px/1.2 var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.demo-nav .pick b{color:var(--ink-2);font-weight:600;margin-right:6px}
+.icon-btn{border:1px solid var(--line);background:var(--surface-2);border-radius:9px;width:36px;height:36px;font:700 20px/1 var(--f-display);flex:none}
+.settings{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.settings .lbl{font:600 14px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.seg.pol button{font-family:var(--f-mono);font-size:16px;padding:5px 12px}
+.seg.pol button[aria-pressed="true"][data-v="-1"]{background:var(--neg);color:#fff}
+.seg.pol button[aria-pressed="true"][data-v="1"]{background:var(--pos);color:#fff}
+
+.lab{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:14px;padding:12px 16px;align-items:start}
+.stage-col{display:flex;flex-direction:column;gap:10px;align-items:center;min-width:0}
+.stage-wrap{position:relative;width:min(100%,calc((100dvh - 172px)*1000/620));min-width:min(100%,520px);aspect-ratio:1000/620;background:var(--stage);border-radius:12px;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 10px 30px -18px rgba(0,0,0,.6)}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.lock{position:absolute;inset:0;display:grid;place-items:end center;padding:22px;background:rgba(10,14,20,.5);color:#fff;font:600 clamp(14px,2.6vw,20px)/1.2 var(--f-display);letter-spacing:.03em;text-align:center}
+.lock span{background:rgba(10,14,20,.82);border:1px solid rgba(255,255,255,.18);padding:10px 16px;border-radius:999px}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);max-width:min(90%,560px);background:#fff7d6;color:#241b00;border-radius:10px;padding:8px 14px;font-weight:700;font-size:15px;box-shadow:0 6px 20px rgba(0,0,0,.35);transition:opacity .25s;text-align:center}
+.toast[data-off]{opacity:0;pointer-events:none}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;width:100%}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 13px;font:600 17px/1.1 var(--f-display);letter-spacing:.02em;display:inline-flex;align-items:center;gap:7px;min-height:38px}
+.btn:hover{border-color:var(--ink-2)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.btn.power{min-width:132px;justify-content:center}
+.btn.power[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn .led{width:9px;height:9px;border-radius:50%;background:var(--ink-2);opacity:.5}
+.btn.power[aria-pressed="true"] .led{background:#178a3e;opacity:1;box-shadow:0 0 0 3px rgba(23,138,62,.25)}
+.field{display:inline-flex;align-items:center;gap:6px;font:600 16px/1 var(--f-display);color:var(--ink-2)}
+.field select{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 8px;min-height:38px;font:600 16px/1.1 var(--f-display);color:var(--ink)}
+.spacer{flex:1 1 0}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 16px 20px;max-height:calc(100dvh - 82px);overflow:auto;min-width:0;display:flex;flex-direction:column;gap:14px}
+.eyebrow{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font:600 14px/1.2 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.chip{border:1px solid var(--line);border-radius:999px;padding:2px 9px;letter-spacing:.04em;white-space:nowrap}
+.chip.core{background:var(--accent-soft);border-color:transparent;color:var(--ink)}
+.panel h1{font:700 32px/1.02 var(--f-display);margin:0;text-wrap:balance}
+.panel h1 small{font:500 22px/1 var(--f-mono);color:var(--ink-2);margin-right:8px}
+.panel h2{font:700 20px/1.1 var(--f-display);letter-spacing:.02em;margin:0;text-wrap:balance}
+.lede{margin:0;color:var(--ink-2)}
+.stepper{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0;padding:0;list-style:none}
+.stepper li{border-top:4px solid var(--line);padding-top:6px;font:600 16px/1.1 var(--f-display);letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2)}
+.stepper li[data-on]{border-color:var(--accent);color:var(--ink)}
+.stepper li[data-done]{border-color:var(--ok);color:var(--ink-2)}
+.block{display:flex;flex-direction:column;gap:10px}
+.q{margin:0;font-weight:700}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--surface-2);cursor:pointer}
+.opt:hover{border-color:var(--ink-2)}
+.opt input{margin:3px 0 0;accent-color:var(--ink);flex:none;width:16px;height:16px}
+.opt:has(input:checked){border-color:var(--ink);background:var(--surface)}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)}
+.opt.wrong{border-color:var(--pos)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;counter-reset:s}
+.steps li{counter-increment:s;display:grid;grid-template-columns:28px minmax(0,1fr);gap:9px;align-items:start;padding:8px 10px;border-radius:9px;border:1px solid transparent;color:var(--ink-2)}
+.steps li::before{content:counter(s);display:grid;place-items:center;width:26px;height:26px;border-radius:50%;border:2px solid var(--line);font:500 14px/1 var(--f-mono)}
+.steps li[data-now]{background:var(--surface-2);border-color:var(--line);color:var(--ink)}
+.steps li[data-now]::before{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.steps li[data-done]{color:var(--ink)}
+.steps li[data-done]::before{content:"✓";border-color:var(--ok);background:var(--ok);color:#fff;font-family:var(--f-body);font-weight:700}
+.steps .note{margin:6px 0 0;color:var(--ok);font-weight:700}
+.steps .opt-tag{font:600 13px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin-left:6px}
+.steps .ask{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.hint{margin:0;padding:8px 10px;border-radius:9px;background:var(--warn-soft);color:var(--warn);font-weight:700}
+.verdict{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:9px;border:1px solid var(--line)}
+.verdict p{margin:0}
+.verdict .mark{font:700 16px/1.1 var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+.verdict[data-ok="1"]{border-color:var(--ok);background:var(--ok-soft)}
+.verdict[data-ok="1"] .mark{color:var(--ok)}
+.verdict[data-ok="0"] .mark{color:var(--pos)}
+.why p{margin:0 0 10px}
+.why p:last-child{margin-bottom:0}
+.sayit{margin:0;padding:10px 12px;border-left:4px solid var(--accent);background:var(--surface-2);border-radius:0 9px 9px 0;font-weight:700}
+.sayit span{display:block;font:600 13px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);margin-bottom:4px}
+.safety{margin:0;padding:10px 12px;border:1px dashed var(--warn);border-radius:9px;color:var(--ink)}
+.safety b{font:700 14px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--warn);display:block;margin-bottom:3px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.link{border:0;background:none;padding:0;color:var(--ink-2);text-decoration:underline;font-size:15px}
+table.log{width:100%;border-collapse:collapse;font-size:14px}
+table.log th{font:600 13px/1.1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+table.log td{padding:6px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.log select{max-width:100%;border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px;font-size:14px}
+.ladder{list-style:none;margin:0;padding:0;display:grid;gap:2px;font:600 15px/1.2 var(--f-display)}
+.ladder li{padding:3px 9px;border-radius:6px;background:var(--surface-2);display:flex;justify-content:space-between;gap:8px}
+.ladder li[data-hit]{background:var(--accent);color:var(--accent-ink)}
+.ladder-cap{display:flex;justify-content:space-between;font:600 13px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.tray{display:flex;flex-direction:column;gap:12px}
+.tray fieldset{border:1px solid var(--line);border-radius:10px;margin:0;padding:8px 10px 10px;display:flex;flex-wrap:wrap;gap:6px}
+.tray legend{font:600 14px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);padding:0 4px}
+.tray label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:5px 11px;background:var(--surface-2);font:600 16px/1.1 var(--f-display);cursor:pointer}
+.tray label:has(input:checked){background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.tray input{position:absolute;opacity:0;pointer-events:none}
+.tray label:has(input:focus-visible){outline:3px solid var(--accent);outline-offset:2px}
+.try{margin:0;padding-left:20px;display:grid;gap:6px}
+
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:0;width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 48px)}
+dialog::backdrop{background:rgba(8,12,18,.6)}
+.menu-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface)}
+.menu-body{padding:12px 16px 18px;display:grid;gap:14px}
+.part h3{margin:0 0 6px;font:600 15px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.part ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px}
+.part button{width:100%;text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:8px 10px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:baseline;font:600 17px/1.15 var(--f-display)}
+.part button:hover{border-color:var(--ink-2)}
+.part button[aria-current="true"]{border-color:var(--ink);background:var(--surface)}
+.part button .n{font:500 14px/1 var(--f-mono);color:var(--ink-2)}
+.part button .s{font-size:14px;color:var(--ink-2)}
+.part button .s[data-done]{color:var(--ok)}
+
+@media (max-width:980px){
+  .lab{grid-template-columns:minmax(0,1fr)}
+  .stage-wrap{width:100%;min-width:0}
+  .panel{max-height:none}
+}
+@media (prefers-reduced-motion:reduce){ .toast{transition:none} }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 26 30" aria-hidden="true"><circle cx="13" cy="9" r="8" fill="currentColor"/><rect x="10.5" y="15" width="5" height="9" fill="currentColor" opacity=".55"/><rect x="5" y="24" width="16" height="5" rx="1.5" fill="currentColor"/><path d="M21 3l3-2M23 8h3M21 13l3 2" stroke="#f2b705" stroke-width="2" stroke-linecap="round"/></svg>
+    Van de Graaff Lab
+  </div>
+  <div class="seg" role="group" aria-label="Mode">
+    <button type="button" id="modeGuided" aria-pressed="true">Guided demos</button>
+    <button type="button" id="modeFree" aria-pressed="false">Free play</button>
+  </div>
+  <div class="demo-nav" id="demoNav">
+    <button type="button" class="icon-btn" id="prevDemo" aria-label="Previous demo">‹</button>
+    <button type="button" class="pick" id="demoPick" aria-haspopup="dialog"></button>
+    <button type="button" class="icon-btn" id="nextDemo" aria-label="Next demo">›</button>
+  </div>
+  <div class="settings">
+    <span class="lbl" id="polLbl">Dome charges</span>
+    <div class="seg pol" role="group" aria-labelledby="polLbl">
+      <button type="button" data-v="-1" id="polNeg" aria-pressed="true" aria-label="Negative">−</button>
+      <button type="button" data-v="1" id="polPos" aria-pressed="false" aria-label="Positive">+</button>
+    </div>
+    <button type="button" class="btn" id="soundBtn" aria-pressed="false">Sound</button>
+  </div>
+</header>
+
+<main class="lab">
+  <section class="stage-col" aria-label="Lab bench">
+    <div class="stage-wrap" id="wrap">
+      <canvas id="stage" aria-label="Interactive lab bench with a Van de Graaff generator. Drag objects with a mouse or finger; use the buttons below for power and other controls."></canvas>
+      <div class="lock" id="lock" hidden><span>Lock in your prediction to start the demo</span></div>
+      <div class="toast" id="toast" role="status" data-off></div>
+    </div>
+    <div class="toolbar" id="toolbar"></div>
+  </section>
+  <aside class="panel" id="panel" aria-live="polite"></aside>
+</main>
+
+<dialog id="menu" aria-labelledby="menuTitle">
+  <div class="menu-head">
+    <h2 id="menuTitle" style="font:700 24px/1 var(--f-display);margin:0">Demos at a glance</h2>
+    <button type="button" class="btn" id="menuClose">Close</button>
+  </div>
+  <div class="menu-body" id="menuBody"></div>
+</dialog>
+
+<script>
+(() => {
+'use strict';
+
+/* ================================================================== *
+ *  Utilities
+ * ================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const hyp = Math.hypot;
+const rnd = (a = 1, b) => b === undefined ? Math.random() * a : a + Math.random() * (b - a);
+const sgn = v => v < 0 ? -1 : v > 0 ? 1 : 0;
+const ease = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));
+const el = (tag, attrs = {}, html) => { const n = document.createElement(tag); for (const k in attrs) { if (k === 'class') n.className = attrs[k]; else if (attrs[k] !== false && attrs[k] != null) n.setAttribute(k, attrs[k]); } if (html != null) n.innerHTML = html; return n; };
+
+const W = 1000, H = 620;      // world size (canvas is scaled to fit)
+const CM = 5.6;               // world units per centimetre (dome radius 70 = 12.5 cm)
+const BENCH = 560;            // y of the bench top
+const SPARK_GAP = 46;         // longest spark at full charge (about 8 cm)
+const EARTH = { x: 44, y: 520 };
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('vdg.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('vdg.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } }
+};
+
+/* Settings shared by every scene */
+const S = {
+  polarity: store.get('polarity', -1) > 0 ? 1 : -1,
+  sound: false,
+  charges: false,
+  lights: true,
+  mode: 'guided',
+  done: store.get('done', {})
+};
+
+const pol = s => ({
+  s, sym: s < 0 ? '−' : '+', name: s < 0 ? 'negative' : 'positive',
+  oppSym: s < 0 ? '+' : '−', opp: s < 0 ? 'positive' : 'negative'
+});
+
+/* ================================================================== *
+ *  Sound (off until the student switches it on)
+ * ================================================================== */
+const audio = {
+  ctx: null, hum: null,
+  ensure() { if (!S.sound) return null; if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (this.ctx.state === 'suspended') this.ctx.resume(); return this.ctx; },
+  snap(strength = 1) {
+    const c = this.ensure(); if (!c) return;
+    const n = Math.floor(c.sampleRate * 0.07), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 4);
+    const src = c.createBufferSource(), g = c.createGain(); src.buffer = buf; g.gain.value = 0.3 * strength; src.connect(g).connect(c.destination); src.start();
+  },
+  setHum(on) {
+    if (this.hum && (!on || !S.sound)) { const h = this.hum; this.hum = null; try { h.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05); h.o.stop(this.ctx.currentTime + 0.4); } catch (e) { /* already stopped */ } }
+    if (!on || this.hum) return; const c = this.ensure(); if (!c) return;
+    const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 58; f.type = 'lowpass'; f.frequency.value = 200; g.gain.value = 0;
+    o.connect(f).connect(g).connect(c.destination); o.start(); g.gain.setTargetAtTime(0.03, c.currentTime, 0.2); this.hum = { o, g };
+  }
+};
+
+/* ================================================================== *
+ *  Triboelectric series (top = loves electrons most = becomes negative)
+ * ================================================================== */
+const SERIES = ['Teflon', 'Vinyl (PVC)', 'Polyethylene', 'Styrofoam', 'Rubber', 'Cotton', 'Paper', 'Silk', 'Wool', 'Nylon', 'Human hair', 'Acrylic', 'Glass', 'Rabbit fur'];
+const affinity = m => SERIES.length - SERIES.indexOf(m);
+/* charge material `a` ends with after being rubbed with `b` (−1..1) */
+function rubCharge(a, b) { const d = affinity(a) - affinity(b); return d ? -sgn(d) * clamp(0.55 + Math.abs(d) * 0.1, 0, 1) : 0; }
+
+/* ================================================================== *
+ *  Canvas drawing helpers
+ * ================================================================== */
+const C = { neg: '#5aa2ff', pos: '#ff6b5e', ink: '#e9eef5', dim: '#93a1b3', skin: '#c99672', sleeve: '#3f8f8a', amber: '#f2b705' };
+const FONT = (px, w = 600) => `${w} ${px}px "Barlow Condensed","Arial Narrow",sans-serif`;
+const MONO = px => `500 ${px}px "IBM Plex Mono",ui-monospace,monospace`;
+
+function rr(c, x, y, w, h, r) { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); }
+function disc(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, TAU); }
+function label(c, t, x, y, o = {}) { c.font = o.font || FONT(13); c.textAlign = o.align || 'center'; c.textBaseline = o.base || 'middle'; c.fillStyle = o.col || C.dim; c.fillText(t, x, y); }
+function pill(c, t, x, y, col = '#cfd8e3') {
+  c.font = FONT(13); const wd = c.measureText(t).width + 14;
+  c.fillStyle = 'rgba(8,12,18,.8)'; rr(c, x - wd / 2, y - 10, wd, 20, 10); c.fill();
+  c.fillStyle = col; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(t, x, y + 1);
+}
+function tag(c, x, y, q, name) { pill(c, (name ? name + ': ' : '') + (Math.abs(q) < 0.04 ? 'neutral' : q < 0 ? 'net −' : 'net +'), x, y, Math.abs(q) < 0.04 ? '#cfd8e3' : q < 0 ? C.neg : C.pos); }
+
+/* charge glyphs: bold = unbalanced, faint = a balanced proton/electron pair */
+function eDot(c, x, y, s = 5.5) { c.fillStyle = C.neg; disc(c, x, y, s); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = s * 0.32; c.beginPath(); c.moveTo(x - s * 0.52, y); c.lineTo(x + s * 0.52, y); c.stroke(); }
+function pDot(c, x, y, s = 5.5) { c.fillStyle = C.pos; disc(c, x, y, s); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = s * 0.32; c.beginPath(); c.moveTo(x - s * 0.52, y); c.lineTo(x + s * 0.52, y); c.moveTo(x, y - s * 0.52); c.lineTo(x, y + s * 0.52); c.stroke(); }
+function qDot(c, x, y, s = 5.5) { c.fillStyle = '#aab4c2'; disc(c, x, y, s); c.fill(); c.fillStyle = '#10151c'; c.font = `700 ${s * 1.6}px sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', x, y + 0.5); }
+function faint(c, x, y, col) { c.globalAlpha = 0.55; c.fillStyle = col; disc(c, x, y, 2.3); c.fill(); c.globalAlpha = 1; }
+const sDot = (c, x, y, s, sz) => s < 0 ? eDot(c, x, y, sz) : pDot(c, x, y, sz);
+
+function circleSites(cx, cy, r, n, a0 = -Math.PI / 2) { const o = []; for (let i = 0; i < n; i++) { const a = a0 + i * TAU / n; o.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, nx: Math.cos(a), ny: Math.sin(a) }); } return o; }
+function boxSites(cx, cy, w, h, perSide = 3) {
+  const o = []; for (let i = 0; i < perSide; i++) { const t = (i + 0.5) / perSide - 0.5; o.push({ x: cx - w / 2, y: cy + t * h, nx: -1, ny: 0 }, { x: cx + w / 2, y: cy + t * h, nx: 1, ny: 0 }); }
+  o.push({ x: cx, y: cy - h / 2, nx: 0, ny: -1 }, { x: cx, y: cy + h / 2, nx: 0, ny: 1 }); return o;
+}
+/* Each site holds one fixed proton and, when balanced, one electron. `moved` electrons shift toward (dx,dy);
+   `netE` extra electrons are added (or removed when negative). Returns electrons per site. */
+function electrons(sites, netE, dx = 0, dy = 0, moved = 0) {
+  const n = sites.length, e = new Array(n).fill(1);
+  const ord = sites.map((s, i) => [s.nx * dx + s.ny * dy, i]).sort((a, b) => a[0] - b[0]).map(a => a[1]);
+  moved = Math.min(Math.round(moved), n >> 1);
+  for (let k = 0; k < moved; k++) { e[ord[k]]--; e[ord[n - 1 - k]]++; }
+  netE = clamp(Math.round(netE), -n, n * 2);
+  for (let k = 0; k < Math.abs(netE); k++) {
+    const i = moved ? (netE > 0 ? ord[n - 1 - (k % n)] : ord[k % n]) : Math.floor((k + 0.5) * n / Math.abs(netE)) % n;
+    if (netE > 0) e[i]++; else if (e[i] > 0) e[i]--; else { const j = e.findIndex(v => v > 0); if (j >= 0) e[j]--; }
+  }
+  return e;
+}
+function drawSites(c, sites, e, o = {}) {
+  const pin = o.pin ?? 9, ein = o.ein ?? 1, step = o.step ?? 11, sz = o.sz ?? 5.5;
+  sites.forEach((s, i) => {
+    const n = e[i], px = s.x - s.nx * pin, py = s.y - s.ny * pin;
+    if (n === 0) pDot(c, px, py, sz); else faint(c, px, py, C.pos);
+    for (let k = 0; k < n; k++) { const ex = s.x + s.nx * (k * step - ein), ey = s.y + s.ny * (k * step - ein); if (k === 0) faint(c, ex, ey, C.neg); else eDot(c, ex, ey, sz); }
+  });
+}
+
+function hand(c, x, y, ang, s = 1) {   // fingertip at (x,y); the arm leaves along `ang`
+  c.save(); c.translate(x, y); c.rotate(ang); c.scale(s, s);
+  c.fillStyle = C.skin; c.strokeStyle = 'rgba(0,0,0,.28)'; c.lineWidth = 1;
+  rr(c, 0, -4, 20, 8, 4); c.fill(); c.stroke();
+  rr(c, 14, -10, 26, 20, 8); c.fill(); c.stroke();
+  c.beginPath(); c.ellipse(22, 10, 8, 4.5, 0.5, 0, TAU); c.fill(); c.stroke();
+  c.fillStyle = C.sleeve; rr(c, 38, -10, 30, 20, 4); c.fill();
+  c.restore();
+}
+function grip(c, x, y, ang, s = 1) {   // a closed hand holding something at (x,y)
+  c.save(); c.translate(x, y); c.rotate(ang); c.scale(s, s);
+  c.fillStyle = C.skin; c.strokeStyle = 'rgba(0,0,0,.28)'; c.lineWidth = 1;
+  rr(c, -11, -11, 24, 22, 9); c.fill(); c.stroke();
+  c.fillStyle = C.sleeve; rr(c, 11, -10, 30, 20, 4); c.fill();
+  c.restore();
+}
+function segDist(px, py, x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1, t = clamp(((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy || 1), 0, 1); return hyp(px - x1 - dx * t, py - y1 - dy * t); }
+function bolt(x1, y1, x2, y2, jit) { const p = [[x1, y1]], n = Math.max(3, Math.round(hyp(x2 - x1, y2 - y1) / 7)); for (let i = 1; i < n; i++) { const t = i / n; p.push([lerp(x1, x2, t) + rnd(-jit, jit), lerp(y1, y2, t) + rnd(-jit, jit)]); } p.push([x2, y2]); return p; }
+function poly(c, pts) { c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]); }
+
+/* ================================================================== *
+ *  World: everything on the bench, plus sparks and electron-flow animations
+ * ================================================================== */
+class Prop {
+  constructor(w) { this.w = w; }
+  update() {} draw() {} drawCharges() {} drawOver() {} glow() {}
+  pick() { return null; }
+}
+
+class World {
+  constructor(cfg = {}) {
+    this.t = 0; this.props = []; this.sparks = []; this.flows = []; this.flags = {}; this.over = [];
+    this.floor = cfg.floor || 'bench'; this.shelf = cfg.shelf || null; this.wallX = cfg.wallX || 0;
+    this.locked = false; this.flash = 0; this.cam = cfg.cam || null;   // cam zooms the view for small table-top stations
+    this.vdg = cfg.vdg === false ? null : new Vdg(this, cfg);
+  }
+  add(p) { this.props.push(p); return p; }
+  remove(p) { const i = this.props.indexOf(p); if (i >= 0) this.props.splice(i, 1); }
+  /* charged bodies that push and pull on hanging objects */
+  sources(except) { const o = [], v = this.vdg; if (v && !v.domeOff) o.push({ x: v.x, y: v.y, q: v.Q, r: v.R, k: 1, cond: true, dome: true }); for (const p of this.props) if (p !== except && p.sources) p.sources(o); return o; }
+  solids(except) { const o = [], v = this.vdg; if (v && !v.domeOff) o.push({ x: v.x, y: v.y, r: v.R, dome: true }); for (const p of this.props) if (p !== except && p.solid) p.solid(o); return o; }
+  grounds() { const o = []; for (const p of this.props) if (p.grounds) p.grounds(o); return o; }
+  spark(x1, y1, x2, y2, strength = 1) {
+    const len = hyp(x2 - x1, y2 - y1), jit = clamp(len * 0.14, 1.2, 9), s = { main: bolt(x1, y1, x2, y2, jit), br: [], life: 0.17, max: 0.17, strength };
+    const nb = len > 14 ? (len > 30 ? 3 : 2) : 0;
+    for (let i = 0; i < nb; i++) { const p = s.main[1 + Math.floor(rnd(s.main.length - 2))], a = Math.atan2(y2 - y1, x2 - x1) + rnd(-1.2, 1.2), l = rnd(8, len * 0.5); s.br.push(bolt(p[0], p[1], p[0] + Math.cos(a) * l, p[1] + Math.sin(a) * l, jit * 0.6)); }
+    this.sparks.push(s); this.flash = Math.max(this.flash, 0.45 * strength); audio.snap(strength);
+  }
+  /* electrons travel from pts[0] to the last point */
+  flow(pts, dur = 1, n = 6) { const seg = []; let L = 0; for (let i = 0; i < pts.length - 1; i++) { const d = hyp(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); seg.push(d); L += d; } this.flows.push({ pts, seg, L, t: 0, dur, n }); }
+  update(dt) {
+    this.t += dt;
+    for (const p of this.props) p.update(dt);
+    if (this.vdg) this.vdg.update(dt);
+    for (const s of this.sparks) s.life -= dt; this.sparks = this.sparks.filter(s => s.life > 0);
+    for (const f of this.flows) f.t += dt; this.flows = this.flows.filter(f => f.t < f.dur * (1 + f.n * 0.09));
+    this.flash = Math.max(0, this.flash - dt * 4);
+  }
+  draw(c) {
+    const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#263344'); g.addColorStop(1, '#19222e'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+    c.save(); if (this.cam) { c.scale(this.cam.s, this.cam.s); c.translate(-this.cam.x, -this.cam.y); }
+    c.strokeStyle = 'rgba(255,255,255,.035)'; c.lineWidth = 1; c.beginPath();
+    for (let x = 100; x < W; x += 100) { c.moveTo(x, 0); c.lineTo(x, BENCH); } for (let y = 60; y < BENCH; y += 100) { c.moveTo(0, y); c.lineTo(W, y); } c.stroke();
+    if (this.wallX) { c.fillStyle = '#c9c2b2'; c.fillRect(this.wallX, 0, W - this.wallX, BENCH); c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(this.wallX, 0, 5, BENCH); label(c, 'WALL', (this.wallX + W) / 2, 30, { font: FONT(14), col: '#6c6658' }); }
+    if (this.floor === 'bench') {
+      c.fillStyle = '#b3bdc8'; c.fillRect(0, BENCH, W, 10); c.fillStyle = '#7b8794'; c.fillRect(0, BENCH + 10, W, 4); c.fillStyle = '#212b38'; c.fillRect(0, BENCH + 14, W, H - BENCH - 14);
+      c.strokeStyle = 'rgba(255,255,255,.06)'; c.beginPath(); for (let x = 125; x < W; x += 250) { c.moveTo(x, BENCH + 20); c.lineTo(x, H); } c.stroke();
+    } else {
+      c.fillStyle = '#4a4338'; c.fillRect(0, BENCH, W, H - BENCH); c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(0, BENCH, W, 3);
+      c.strokeStyle = 'rgba(0,0,0,.2)'; c.beginPath(); for (let x = 60; x < W; x += 140) { c.moveTo(x, BENCH); c.lineTo(x - 30, H); } c.stroke();
+    }
+    if (this.vdg) this.drawEarth(c);
+    this.drawShelf(c);
+    if (this.vdg) this.vdg.draw(c);
+    for (const p of this.props) p.draw(c);
+    if (!S.lights) {
+      c.fillStyle = 'rgba(2,4,9,.9)'; c.fillRect(-W, -H, 3 * W, 3 * H);
+      if (this.vdg && this.vdg.on) { c.fillStyle = '#6dff95'; disc(c, this.vdg.x - 58, this.vdg.by - 36, 4); c.fill(); }
+      for (const p of this.props) p.glow(c);
+    }
+    this.drawSparks(c);
+    if (S.charges) { if (this.vdg) this.vdg.drawCharges(c); for (const p of this.props) p.drawCharges(c); this.drawFlows(c); }
+    for (const p of this.props) p.drawOver(c);
+    c.restore();
+    if (S.charges) this.drawLegend(c);
+    for (const f of this.over) f(c);
+    this.drawMeter(c);
+    if (this.flash > 0) { c.fillStyle = `rgba(200,215,255,${this.flash * 0.22})`; c.fillRect(0, 0, W, H); }
+  }
+  drawEarth(c) {
+    c.fillStyle = '#313c4a'; rr(c, EARTH.x - 20, EARTH.y - 22, 40, 44, 5); c.fill();
+    c.strokeStyle = '#7fd39b'; c.lineWidth = 2.5; c.lineCap = 'round'; c.beginPath();
+    c.moveTo(EARTH.x, EARTH.y - 14); c.lineTo(EARTH.x, EARTH.y - 2); c.moveTo(EARTH.x - 12, EARTH.y - 2); c.lineTo(EARTH.x + 12, EARTH.y - 2);
+    c.moveTo(EARTH.x - 8, EARTH.y + 4); c.lineTo(EARTH.x + 8, EARTH.y + 4); c.moveTo(EARTH.x - 4, EARTH.y + 10); c.lineTo(EARTH.x + 4, EARTH.y + 10); c.stroke();
+    label(c, 'GROUND', EARTH.x, EARTH.y - 32, { font: FONT(12) });
+  }
+  drawShelf(c) {
+    const s = this.shelf; if (!s) return;
+    c.fillStyle = '#46515f';
+    for (const lx of [Math.max(s.x1 + 26, 432), s.x2 - 26]) { c.fillRect(lx - 4, s.y + 8, 8, BENCH - s.y - 8); rr(c, lx - 22, BENCH - 7, 44, 7, 3); c.fill(); }
+    c.fillStyle = 'rgba(150,205,225,.5)'; rr(c, s.x1, s.y, s.x2 - s.x1, 9, 3); c.fill(); c.strokeStyle = 'rgba(220,240,250,.65)'; c.lineWidth = 1; c.stroke();
+    label(c, s.label || 'plastic tray (insulator)', s.x2 - 8, s.y + 22, { align: 'right', font: FONT(12) });
+  }
+  drawSparks(c) {
+    if (!this.sparks.length) return;
+    c.save(); c.globalCompositeOperation = 'lighter'; c.lineCap = 'round'; c.lineJoin = 'round';
+    for (const s of this.sparks) {
+      const a = clamp(s.life / s.max, 0, 1); c.shadowColor = '#9db8ff'; c.shadowBlur = 18;
+      c.strokeStyle = `rgba(185,203,255,${0.9 * a})`; c.lineWidth = 3 * s.strength + 0.8; poly(c, s.main); c.stroke();
+      c.shadowBlur = 0; c.strokeStyle = `rgba(255,255,255,${a})`; c.lineWidth = 1.4; poly(c, s.main); c.stroke();
+      c.strokeStyle = `rgba(170,190,255,${0.75 * a})`; c.lineWidth = 1.1; for (const b of s.br) { poly(c, b); c.stroke(); }
+    }
+    c.restore();
+  }
+  drawFlows(c) {
+    for (const f of this.flows) for (let k = 0; k < f.n; k++) {
+      const u = f.t / f.dur - k * 0.09; if (u < 0 || u > 1) continue;
+      let d = u * f.L, i = 0; while (i < f.seg.length - 1 && d > f.seg[i]) { d -= f.seg[i]; i++; }
+      const a = f.pts[i], b = f.pts[i + 1], t = f.seg[i] ? d / f.seg[i] : 0; eDot(c, lerp(a[0], b[0], t), lerp(a[1], b[1], t), 5);
+    }
+  }
+  drawLegend(c) {
+    const x = 18, y = H - 44; c.fillStyle = 'rgba(8,12,18,.78)'; rr(c, x, y, 372, 30, 9); c.fill();
+    eDot(c, x + 16, y + 15, 5.5); label(c, 'electron (moves)', x + 27, y + 16, { align: 'left', col: '#dbe3ec' });
+    pDot(c, x + 138, y + 15, 5.5); label(c, 'proton (stays put)', x + 149, y + 16, { align: 'left', col: '#dbe3ec' });
+    faint(c, x + 268, y + 15, C.pos); faint(c, x + 276, y + 15, C.neg); label(c, 'balanced pair', x + 285, y + 16, { align: 'left', col: '#dbe3ec' });
+  }
+  drawMeter(c) {
+    const v = this.vdg; if (!v) return; const x = 18, y = 16, a = Math.abs(v.Q);
+    c.fillStyle = 'rgba(8,12,18,.74)'; rr(c, x, y, 206, 46, 9); c.fill();
+    label(c, 'DOME CHARGE', x + 12, y + 14, { align: 'left', font: FONT(12), col: '#9fadbd' });
+    c.fillStyle = 'rgba(255,255,255,.13)'; rr(c, x + 12, y + 27, 112, 9, 4.5); c.fill();
+    if (a > 0.006) { c.fillStyle = v.mystery ? '#aab4c2' : v.Q < 0 ? C.neg : C.pos; rr(c, x + 12, y + 27, Math.max(9, 112 * Math.min(a, 1)), 9, 4.5); c.fill(); }
+    label(c, a < 0.01 ? 'neutral' : (v.mystery ? '? ' : v.Q < 0 ? '− ' : '+ ') + Math.round(a * 100) + '%', x + 196, y + 31, { align: 'right', font: MONO(13), col: '#e9eef5' });
+  }
+}
+
+/* ================================================================== *
+ *  The Van de Graaff generator
+ * ================================================================== */
+class Vdg {
+  constructor(w, o = {}) {
+    this.w = w; this.x = o.x ?? 320; this.y = o.y ?? 215; this.R = 70; this.by = BENCH;
+    this.on = false; this.Q = 0; this.sign = o.sign ?? S.polarity; this.mystery = !!o.mystery; this.cutaway = !!o.cutaway; this.roller = o.roller || null;
+    this.belt = 0; this.drain = 0; this.grounded = null; this.wasGrounded = null; this.domeOff = false; this.lift = 0; this.tau = 3;
+  }
+  update(dt) {
+    this.lift = ease(this.lift, this.domeOff ? 1 : 0, 6, dt);
+    if (this.on) { this.belt += dt * (this.domeOff ? 0.3 : 1); if (!this.domeOff) this.Q += (this.sign - this.Q) * (1 - Math.exp(-dt / this.tau)); }
+    else this.Q *= Math.exp(-dt / 400);
+    if (this.drain) this.Q *= Math.exp(-dt * this.drain);
+    if (this.grounded) this.Q *= Math.exp(-dt * 40);
+    if (this.domeOff) this.Q *= Math.exp(-dt * 8);
+    if (!this.on && Math.abs(this.Q) < 0.004) this.Q = 0;
+    this.wasGrounded = this.grounded; this.grounded = null; this.drain = 0;
+  }
+  hitSwitch(px, py) { return px > this.x + 30 && px < this.x + 78 && py > this.by - 46 && py < this.by - 12; }
+  earthPath() { return [[this.x - 80, this.by - 12], [80, this.by - 12], [EARTH.x + 14, EARTH.y + 16]]; }
+  drawBelt(c) {
+    const { x, y, by } = this, uy = y + 6, ly = by - 30, r = 12;
+    c.strokeStyle = '#c98a4b'; c.lineWidth = 5; c.lineCap = 'butt';
+    c.beginPath(); c.moveTo(x - r, ly); c.lineTo(x - r, uy); c.arc(x, uy, r, Math.PI, 0); c.lineTo(x + r, ly); c.arc(x, ly, r, 0, Math.PI); c.stroke();
+    c.strokeStyle = 'rgba(60,30,10,.6)'; c.lineWidth = 1.5; c.beginPath();
+    for (let d = (this.belt * 90) % 14; d < ly - uy; d += 14) { c.moveTo(x + r - 3, ly - d); c.lineTo(x + r + 3, ly - d); c.moveTo(x - r - 3, uy + d); c.lineTo(x - r + 3, uy + d); }
+    c.stroke();
+    c.fillStyle = this.roller ? ({ Nylon: '#e9e4d2', Glass: '#a9d6de', 'Vinyl (PVC)': '#8d949e', Teflon: '#f4f6f8' }[this.roller] || '#9aa5b3') : '#59636f'; disc(c, x, ly, r - 3); c.fill();
+    c.fillStyle = '#9aa5b3'; disc(c, x, uy, r - 3); c.fill();
+    c.fillStyle = '#1b2029'; disc(c, x, ly, 2); c.fill(); disc(c, x, uy, 2); c.fill();
+  }
+  drawCombs(c) {
+    const { x, y, by } = this, uy = y + 6, ly = by - 30;
+    c.strokeStyle = '#d8dee6'; c.lineWidth = 2; c.lineCap = 'round'; c.beginPath();
+    for (const cy of [uy, ly]) { c.moveTo(x + 26, cy - 9); c.lineTo(x + 26, cy + 9); for (let k = -1; k <= 1; k++) { c.moveTo(x + 26, cy + k * 7); c.lineTo(x + 18, cy + k * 7); } }
+    c.stroke();
+    c.strokeStyle = '#4fa36e'; c.beginPath(); c.moveTo(x + 26, ly + 9); c.lineTo(x + 26, by - 12); c.lineTo(x - 80, by - 12); c.stroke();
+  }
+  draw(c) {
+    const { x, y, R, by } = this, cut = this.cutaway || this.lift > 0.02, dy = y - this.lift * 118;
+    c.strokeStyle = '#4fa36e'; c.lineWidth = 3; c.lineCap = 'round'; c.lineJoin = 'round'; poly(c, this.earthPath()); c.stroke();
+    c.fillStyle = '#0f141b'; c.fillRect(x - 16, y - 12, 32, by - 58 - (y - 12));
+    this.drawBelt(c);
+    if (cut) { this.drawCombs(c); c.strokeStyle = '#d8dee6'; c.lineWidth = 2; c.beginPath(); c.moveTo(x + 26, y - 3); c.lineTo(x + 44, y - 3 - this.lift * 60); c.stroke(); }
+    c.fillStyle = 'rgba(160,200,235,.12)'; rr(c, x - 21, y + R - 10, 42, by - 56 - (y + R - 10), 5); c.fill(); c.strokeStyle = 'rgba(200,228,250,.4)'; c.lineWidth = 1.5; c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,.22)'; c.lineWidth = 2; c.beginPath(); c.moveTo(x - 15, y + R + 2); c.lineTo(x - 15, by - 64); c.stroke();
+    /* base */
+    c.fillStyle = '#2d3745'; rr(c, x - 80, by - 58, 160, 58, [10, 10, 3, 3]); c.fill();
+    c.fillStyle = '#3b4758'; rr(c, x - 80, by - 58, 160, 9, [10, 10, 0, 0]); c.fill();
+    if (cut) {
+      c.save(); rr(c, x - 30, by - 50, 62, 42, 6); c.clip(); c.fillStyle = '#0c1016'; c.fillRect(x - 30, by - 50, 62, 42); this.drawBelt(c); this.drawCombs(c); c.restore();
+      c.strokeStyle = 'rgba(220,235,250,.5)'; c.lineWidth = 1.5; rr(c, x - 30, by - 50, 62, 42, 6); c.stroke();
+    } else { c.strokeStyle = 'rgba(0,0,0,.4)'; c.lineWidth = 2; c.beginPath(); for (let i = 0; i < 4; i++) { c.moveTo(x - 22, by - 40 + i * 6); c.lineTo(x + 14, by - 40 + i * 6); } c.stroke(); }
+    const sx = x + 36, sy = by - 42;
+    c.fillStyle = '#0d1218'; rr(c, sx, sy, 36, 22, 5); c.fill();
+    c.fillStyle = this.on ? C.amber : '#5a6470'; rr(c, sx + (this.on ? 19 : 3), sy + 3, 14, 16, 3); c.fill();
+    label(c, this.on ? 'ON' : 'OFF', sx + 18, sy + 31, { font: FONT(11), col: '#9fadbd' });
+    c.fillStyle = this.on ? '#6dff95' : '#2c4335'; disc(c, x - 58, by - 36, 4); c.fill();
+    label(c, 'MOTOR', x - 58, by - 18, { font: FONT(10), col: '#7c8998' });
+    /* dome */
+    const g = c.createRadialGradient(x - R * 0.38, dy - R * 0.45, R * 0.06, x, dy, R * 1.08);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.22, '#e3e8ee'); g.addColorStop(0.7, '#8792a1'); g.addColorStop(1, '#4c5766');
+    c.globalAlpha = cut ? 0.3 : 1; c.fillStyle = g; disc(c, x, dy, R); c.fill(); c.globalAlpha = 1;
+    c.strokeStyle = cut ? 'rgba(230,238,246,.85)' : 'rgba(255,255,255,.3)'; c.lineWidth = cut ? 2 : 1; disc(c, x, dy, R); c.stroke();
+    if (!cut) { c.fillStyle = '#586372'; rr(c, x - 25, y + R - 12, 50, 10, 3); c.fill(); }
+    if (cut) this.drawCallouts(c);
+  }
+  drawCallouts(c) {
+    const { x, y, by } = this, tx = x + 104;
+    const L = (t, ty, px, py) => { c.strokeStyle = 'rgba(242,183,5,.7)'; c.lineWidth = 1; c.beginPath(); c.moveTo(tx - 5, ty); c.lineTo(px, py); c.stroke(); label(c, t, tx, ty, { align: 'left', col: '#f4d77a', font: FONT(14) }); };
+    L('upper comb: belt ↔ dome', y - 26, x + 27, y + 4);
+    L('upper roller', y + 30, x + 8, y + 9);
+    L('rubber belt (insulator)', y + 150, x + 15, y + 150);
+    L('lower comb → ground', by - 104, x + 27, by - 34);
+    L('lower roller: ' + (this.roller || 'plastic'), by - 78, x + 7, by - 32);
+  }
+  drawCharges(c) {
+    const { x, y, R, by } = this, dy = y - this.lift * 118, sites = circleSites(x, dy, R, 20, -Math.PI / 2 + Math.PI / 20);
+    if (this.mystery) { const n = Math.round(Math.abs(this.Q) * 16); for (let k = 0; k < n; k++) { const s = sites[Math.floor((k + 0.5) * 20 / n) % 20]; qDot(c, s.x - s.nx * 8, s.y - s.ny * 8); } return; }
+    drawSites(c, sites, electrons(sites, -this.Q * 15), { pin: 14, ein: 4, step: 13 });
+    if (!this.on) return;
+    /* electrons riding the belt: up to a negative dome, down from a positive one */
+    const cut = this.cutaway || this.lift > 0.02, uy = y + 6, ly = by - 30, span = ly - uy, up = this.sign < 0, lo = cut ? uy : y + R + 4, hi = cut ? ly : by - 62;
+    for (let k = 0; k < 7; k++) { const d = (this.belt * 90 + k * span / 7) % span, yy = up ? ly - d : uy + d; if (yy > lo && yy < hi) eDot(c, x + (up ? 12 : -12), yy, 4.5); }
+    if (cut) {
+      sDot(c, x, ly, -this.sign, 6);                                        // the roller keeps the opposite charge
+      const t = (this.belt * 1.6) % 1;                                      // electrons hopping across the combs
+      if (up) { eDot(c, lerp(x + 26, x + 14, t), ly, 4); if (!this.domeOff) eDot(c, lerp(x + 14, x + 40, t), uy - 4 - t * 10, 4); }
+      else { eDot(c, lerp(x + 14, x + 26, t), ly, 4); if (!this.domeOff) eDot(c, lerp(x + 40, x - 12, t), uy - 14 + t * 14, 4); }
+    }
+  }
+}
+
+/* dimension line between the dome and an object */
+function gapLine(c, v, x, y, r, maxGap = 260) {
+  const dx = x - v.x, dy = y - v.y, d = hyp(dx, dy) || 1, gap = d - v.R - r; if (gap < 4 || gap > maxGap) return;
+  const ux = dx / d, uy = dy / d, x1 = v.x + ux * v.R, y1 = v.y + uy * v.R, x2 = x - ux * r, y2 = y - uy * r;
+  c.save(); c.strokeStyle = 'rgba(242,183,5,.9)'; c.setLineDash([4, 4]); c.lineWidth = 1.5; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); c.restore();
+  const cm = gap / CM; pill(c, (cm < 10 ? cm.toFixed(1) : Math.round(cm)) + ' cm', (x1 + x2) / 2 + uy * 20, (y1 + y2) / 2 - ux * 20 - 2, C.amber);
+}
+
+function grab(o, px, py, opt = {}) {
+  const ox = o.x - px, oy = o.y - py;
+  return { move(x, y) { let nx = x + ox, ny = y + oy; if (opt.fix) [nx, ny] = opt.fix(nx, ny); o.x = nx; o.y = ny; o.held = true; }, end() { o.held = false; if (opt.end) opt.end(); } };
+}
+function pushOut(w, x, y, r) { const v = w.vdg; if (!v || v.domeOff) return [x, y]; const dx = x - v.x, dy = y - v.y, d = hyp(dx, dy) || 1, m = v.R + r; return d < m ? [v.x + dx / d * m, v.y + dy / d * m] : [x, y]; }
+
+/* A grounded conductor at (x,y): sparks to the dome when close, drains it on contact. pathFn gives the route to ground. */
+function groundProbe(w, x, y, r, src, pathFn) {
+  const v = w.vdg; if (!v || v.domeOff) return null;
+  const dx = x - v.x, dy = y - v.y, d = hyp(dx, dy) || 1, gap = d - v.R - r, ux = dx / d, uy = dy / d;
+  const sx = v.x + ux * v.R, sy = v.y + uy * v.R, ex = x - ux * r, ey = y - uy * r, a = Math.abs(v.Q);
+  const go = strength => {
+    w.spark(sx, sy, gap <= 2 ? ex + ux * 4 : ex, gap <= 2 ? ey + uy * 4 : ey, strength);
+    const path = pathFn ? pathFn(sx, sy) : [[sx, sy], [x, y]];
+    w.flow(v.Q < 0 ? path : path.slice().reverse(), 1.2, 7); w.flags.groundings = (w.flags.groundings || 0) + 1;
+  };
+  if (gap <= 2) { if (a > 0.06) { go(0.5); v.Q *= 0.04; } v.grounded = src; return 'touch'; }
+  if (a > 0.08 && a * SPARK_GAP > gap) { go(clamp(a * 1.2, 0.45, 1)); w.flags.sparks = (w.flags.sparks || 0) + 1; w.flags.sparkGap = gap; v.Q *= 0.04; return 'spark'; }
+  return null;
+}
+/* ================================================================== *
+ *  Props: the things you can put on the bench
+ * ================================================================== */
+
+/* Grounded discharge wand */
+class Wand extends Prop {
+  constructor(w, o = {}) { super(w); this.x = o.x ?? 150; this.y = o.y ?? 330; this.r = 17; this.side = -1; this.auto = null; this.showGap = !!o.showGap; }
+  grip() { return { x: this.x + this.side * 58, y: this.y + 96 }; }
+  path(sx, sy) { const g = this.grip(), v = this.w.vdg; return [[sx, sy], [this.x, this.y], [g.x, g.y], [v.x - 80, v.by - 12], ...v.earthPath().slice(1)]; }
+  touchDome() { if (!this.auto) this.auto = { t: 0, x: this.x, y: this.y }; }
+  update(dt) {
+    const v = this.w.vdg; if (!v) return;
+    this.side = ease(this.side, this.x < v.x ? -1 : 1, 10, dt);
+    if (this.auto) {
+      const a = this.auto; a.t += dt; const m = v.R + this.r, s = a.x < v.x ? -1 : 1, tx = v.x + s * m * 0.82, ty = v.y - m * 0.573;
+      const k = a.t < 0.45 ? a.t / 0.45 : a.t < 0.95 ? 1 : 1 - (a.t - 0.95) / 0.45, e = k * k * (3 - 2 * k);
+      this.x = lerp(a.x, tx, e); this.y = lerp(a.y, ty, e); if (a.t >= 1.4) { this.x = a.x; this.y = a.y; this.auto = null; }
+    }
+    groundProbe(this.w, this.x, this.y, this.r, this, (sx, sy) => this.path(sx, sy));
+  }
+  solid(o) { o.push({ x: this.x, y: this.y, r: this.r, grounded: true }); }
+  grounds(o) { o.push({ x: this.x, y: this.y, r: this.r }); }
+  pick(x, y) {
+    if (this.auto) return null; const g = this.grip();
+    if (hyp(x - this.x, y - this.y) > this.r + 8 && segDist(x, y, this.x, this.y, g.x, g.y) > 12) return null;
+    return grab(this, x, y, { fix: (nx, ny) => { [nx, ny] = pushOut(this.w, nx, ny, this.r); return [clamp(nx, 24, W - 24), clamp(ny, 24, BENCH - 104)]; } });
+  }
+  draw(c) {
+    const g = this.grip(), v = this.w.vdg, tx = v ? v.x - 80 : 60, ty = v ? v.by - 12 : BENCH - 12;
+    c.strokeStyle = '#4fa36e'; c.lineWidth = 2.5; c.lineCap = 'round'; c.beginPath(); c.moveTo(g.x, g.y); c.quadraticCurveTo((g.x + tx) / 2, Math.min(BENCH - 3, Math.max(g.y, ty) + 34), tx, ty); c.stroke();
+    c.strokeStyle = '#aab4c0'; c.lineWidth = 4; c.beginPath(); c.moveTo(this.x, this.y); c.lineTo(lerp(this.x, g.x, 0.45), lerp(this.y, g.y, 0.45)); c.stroke();
+    c.strokeStyle = '#11161d'; c.lineWidth = 12; c.beginPath(); c.moveTo(lerp(this.x, g.x, 0.42), lerp(this.y, g.y, 0.42)); c.lineTo(g.x, g.y); c.stroke();
+    c.strokeStyle = C.amber; c.lineWidth = 12; c.lineCap = 'butt'; c.beginPath(); c.moveTo(lerp(this.x, g.x, 0.5), lerp(this.y, g.y, 0.5)); c.lineTo(lerp(this.x, g.x, 0.54), lerp(this.y, g.y, 0.54)); c.stroke();
+    const gr = c.createRadialGradient(this.x - 6, this.y - 7, 1, this.x, this.y, this.r * 1.1); gr.addColorStop(0, '#fff'); gr.addColorStop(0.3, '#dfe5ec'); gr.addColorStop(1, '#5b6675');
+    c.fillStyle = gr; disc(c, this.x, this.y, this.r); c.fill();
+    label(c, 'discharge wand (grounded)', g.x, g.y + 16, { font: FONT(12) });
+  }
+  drawOver(c) { const v = this.w.vdg; if (this.showGap && v && !this.auto) gapLine(c, v, this.x, this.y, this.r, 190); }
+}
+
+/* Anything hanging from a string: balloons, a foil ball on a ring stand, rubbed rods, cloths */
+const G = 1400, KC = 4000, KP = 10600, KI = 3000;
+const MATCOL = { 'Human hair': ['#4a3424', '#99714a'], Wool: ['#cdbfa2', '#f5ecd8'], Cotton: ['#cfd5da', '#ffffff'], Silk: ['#7f6fc4', '#cfc4f7'], 'Rabbit fur': ['#8f877d', '#ddd5ca'] };
+class Hanger extends Prop {
+  constructor(w, o = {}) {
+    super(w);
+    Object.assign(this, { px: 640, py: 150, L: 110, th: 0, om: 0, q: 0, r: 30, kind: 'balloon', material: 'Rubber', label: '', color: '#e5564b', cond: false, polz: 0.45, kc: 2600, leak: 0, stand: 0, canRub: true, hide: false, showGap: false, name: '' }, o);
+    this.held = false; this.rub = 0; this.q0 = this.q; this.rubMat = null; this.rubT = 0; this.gap = 999; this.dAvg = 0; this.seen = null; this.touches = 0; this.groundHits = 0;
+  }
+  get bx() { return this.px + this.L * Math.sin(this.th); }
+  get by() { return this.py + this.L * Math.cos(this.th); }
+  sources(o) { if (!this.cond && Math.abs(this.q) > 0.02) o.push({ x: this.bx, y: this.by, q: this.q, r: this.r, k: 0.6, hanging: true }); }
+  rubWith(mat, d) { if (this.rubMat !== mat) { this.rubMat = mat; this.rub = 0; this.q0 = this.q; } this.rub += d; this.q = lerp(this.q0, rubCharge(this.material, mat), clamp(this.rub / 420, 0, 1)); this.rubT = 0.7; }
+  force() {
+    let fx = 0, fy = 0; const bx = this.bx, by = this.by;
+    for (const s of this.w.sources(this)) {
+      if (s.hanging) continue;   // hanging objects are tested one at a time; they don't tug on each other
+      const dx = bx - s.x, dy = by - s.y, d = Math.max(hyp(dx, dy), (s.r + this.r) * 0.9), u = d / 70, u2 = u * u, u4 = u2 * u2, k = s.k ?? 1;
+      /* first term: Coulomb force between net charges (+ = repel). The rest: the pull between a charge and a polarized neutral body. */
+      const f = this.cond ? this.kc * k * s.q * this.q / u2 - KP * this.polz * k * (s.q - this.q) ** 2 / u4
+        : s.dome ? KC * s.q * this.q / u2 - (KP * this.polz * s.q * s.q + KI * this.q * this.q) / u4
+        : (KC * k * s.q * this.q - 4500 * this.polz * s.q * s.q * (this.r / d) ** 3 - (s.cond ? 3000 * this.q * this.q * (s.r / d) ** 3 : 0)) / u2;
+      fx += f * dx / d; fy += f * dy / d;
+    }
+    return [fx, fy];
+  }
+  collide() {
+    const w = this.w;
+    for (const s of w.solids(this)) {
+      const m = s.r + this.r * 0.94; let dx = this.bx - s.x, dy = this.by - s.y; if (dx * dx + dy * dy >= m * m) continue;
+      const side = this.px >= s.x ? 1 : -1; for (let n = 0; n < 90; n++) { this.th += side * 0.008; dx = this.bx - s.x; dy = this.by - s.y; if (dx * dx + dy * dy >= m * m) break; }
+      if (this.om * side < 0) this.om = -this.om * 0.25;
+      if (!this.cond) continue;
+      const v = w.vdg, px = (this.bx + s.x) / 2, py = (this.by + s.y) / 2;
+      if (s.dome && Math.abs(v.Q - this.q) > 0.06) { if (Math.abs(v.Q - this.q) > 0.25) w.spark(px - 3, py, px + 3, py, 0.3); this.q = v.Q; v.Q *= 0.985; this.touches++; }
+      else if (s.grounded && Math.abs(this.q) > 0.06) { w.spark(px - 3, py, px + 3, py, 0.3); this.q = 0; this.groundHits++; }
+    }
+  }
+  update(dt) {
+    const w = this.w, v = w.vdg; this.rubT = Math.max(0, this.rubT - dt);
+    if (this.leak) this.q *= Math.exp(-dt / this.leak);
+    if (this.held) { this.om = 0; this.th = 0; }
+    else {
+      const n = 4, h = dt / n;
+      for (let i = 0; i < n; i++) {
+        const [fx, fy] = this.force(), st = Math.sin(this.th), ct = Math.cos(this.th);
+        this.om = (this.om + ((fx * ct - fy * st) / this.L - G / this.L * st) * h) * Math.exp(-h * 2.4);
+        this.th = clamp(this.th + this.om * h, -1.45, 1.45); this.collide();
+      }
+    }
+    if (v) {
+      this.gap = hyp(this.bx - v.x, this.by - v.y) - v.R - this.r;
+      const df = Math.abs(v.Q - this.q);   // a conductor this close to the dome is charged by a small spark before it even touches
+      if (this.cond && !v.domeOff && df > 0.25 && this.gap < df * 10) { const ux = (this.bx - v.x) / (this.gap + v.R + this.r), uy = (this.by - v.y) / (this.gap + v.R + this.r); w.spark(v.x + ux * v.R, v.y + uy * v.R, this.bx - ux * this.r, this.by - uy * this.r, 0.35); this.q = v.Q; v.Q *= 0.985; this.touches++; }
+      this.dAvg = ease(this.dAvg, this.held ? 0 : this.th * (this.px >= v.x ? 1 : -1), 3.5, dt);
+      if (!this.held && this.gap < 210 && Math.abs(v.Q) > 0.4) { if (this.dAvg > 0.07) this.seen = 'repel'; else if (this.dAvg < -0.035) this.seen = 'attract'; }
+    }
+  }
+  pick(x, y) {
+    const w = this.w, self = this;
+    if (this.stand) {
+      const sx = this.px + 72; if (Math.abs(x - sx) > 36 || y < this.py - 16 || y > BENCH + 4) return null;
+      const ox = this.px - x; return { move(mx) { const v = w.vdg; self.px = clamp(mx + ox, v ? v.x + v.R + 6 : 60, W - 110); }, end() {} };
+    }
+    if (hyp(x - this.bx, y - this.by) < this.r + 6) {
+      const ox = this.bx - x, oy = this.by - y;
+      return { move(mx, my) { let nx = mx + ox, ny = my + oy; [nx, ny] = pushOut(w, nx, ny, self.r * 0.96); self.px = clamp(nx, 24, (w.wallX || W) - 24); self.py = clamp(ny, self.r + 4, BENCH - self.r - 2) - self.L; self.th = 0; self.om = 0; self.held = true; }, end() { self.held = false; } };
+    }
+    if (hyp(x - this.px, y - this.py) < 20) { const ox = this.px - x, oy = this.py - y; return { move(mx, my) { self.px = clamp(mx + ox, 20, W - 20); self.py = clamp(my + oy, -40, BENCH - self.L - self.r - 3); }, end() {} }; }
+    return null;
+  }
+  draw(c) {
+    const bx = this.bx, by = this.by, r = this.r;
+    if (this.stand) {
+      const sx = this.px + 72; c.fillStyle = '#56616f'; rr(c, sx - 36, BENCH - 9, 72, 9, 3); c.fill();
+      c.fillStyle = '#8f9aa8'; c.fillRect(sx - 3, this.py - 12, 6, BENCH - this.py + 4); c.fillRect(this.px - 2, this.py - 3, 78, 5);
+      label(c, 'ring stand: drag me', sx + 10, BENCH - 22, { align: 'left', font: FONT(12) });
+    }
+    c.strokeStyle = 'rgba(235,240,245,.8)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(this.px, this.py); c.lineTo(bx, by); c.stroke();
+    if (!this.stand && this.py > -8) { c.fillStyle = '#0f1319'; rr(c, this.px - 14, this.py - 7, 28, 13, 6.5); c.fill(); c.strokeStyle = C.amber; c.lineWidth = 1.5; c.stroke(); }
+    c.save(); c.translate(bx, by); c.rotate(-this.th);
+    if (this.kind === 'balloon') {
+      c.fillStyle = this.color; c.beginPath(); c.ellipse(0, 0, r * 0.88, r * 1.06, 0, 0, TAU); c.fill();
+      c.beginPath(); c.moveTo(-5, -r * 1.03); c.lineTo(5, -r * 1.03); c.lineTo(0, -r * 1.03 - 8); c.fill();
+      c.fillStyle = 'rgba(255,255,255,.4)'; c.beginPath(); c.ellipse(-r * 0.32, -r * 0.42, r * 0.2, r * 0.32, 0.5, 0, TAU); c.fill();
+      if (this.label) label(c, this.label, 0, 3, { font: FONT(26, 700), col: '#fff' });
+    } else if (this.kind === 'foil') {
+      const g = c.createRadialGradient(-3, -4, 1, 0, 0, r * 1.1); g.addColorStop(0, '#fff'); g.addColorStop(0.4, '#cfd6de'); g.addColorStop(1, '#6f7a88'); c.fillStyle = g; disc(c, 0, 0, r); c.fill();
+      c.strokeStyle = 'rgba(40,50,60,.45)'; c.lineWidth = 0.8; c.beginPath(); c.moveTo(-r * 0.6, -1); c.lineTo(0, r * 0.4); c.lineTo(r * 0.5, -r * 0.3); c.moveTo(-2, -r * 0.7); c.lineTo(2, 0); c.stroke();
+    } else if (this.kind === 'pvc' || this.kind === 'acrylic') {
+      c.fillStyle = this.kind === 'pvc' ? '#e9ecef' : 'rgba(200,235,250,.55)'; rr(c, -40, -r * 0.45, 80, r * 0.9, 4); c.fill(); c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 1; c.stroke();
+    } else if (this.kind === 'foam') {
+      c.fillStyle = '#f4f5f2'; c.beginPath(); c.moveTo(-17, -20); c.lineTo(17, -20); c.lineTo(12, 20); c.lineTo(-12, 20); c.closePath(); c.fill(); c.strokeStyle = '#c9ccc6'; c.lineWidth = 1; c.stroke();
+    } else if (this.kind === 'cloth') {
+      const m = MATCOL[this.material] || ['#bbb', '#eee']; c.fillStyle = m[0]; c.beginPath(); c.moveTo(-24, -16); c.quadraticCurveTo(0, -22, 24, -15); c.lineTo(20, 18); c.quadraticCurveTo(0, 12, -22, 19); c.closePath(); c.fill();
+      c.strokeStyle = m[1]; c.lineWidth = 1.3; c.beginPath(); for (let i = -18; i <= 18; i += 6) { c.moveTo(i, -12); c.lineTo(i + 2, 12); } c.stroke();
+    }
+    c.restore();
+    if (this.name) label(c, this.name, bx, by + r + (S.charges && !this.hide ? 38 : 16), { font: FONT(13), col: '#c5cfdb' });
+    if (this.rubT > 0 && this.rub < 420) { c.strokeStyle = C.amber; c.lineWidth = 3; c.lineCap = 'round'; c.beginPath(); c.arc(bx, by, r + 8, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(this.rub / 420, 0, 1)); c.stroke(); }
+  }
+  drawCharges(c) {
+    if (this.hide) return; const bx = this.bx, by = this.by, r = this.r;
+    if (this.cond) {
+      const v = this.w.vdg; let dx = 0, dy = 0, mv = 0;
+      if (v) { const d = hyp(v.x - bx, v.y - by) || 1; dx = (v.x - bx) / d * sgn(v.Q); dy = (v.y - by) / d * sgn(v.Q); mv = clamp(Math.abs(v.Q - this.q) * 7 / (d / v.R) ** 2, 0, 2); }
+      const s = circleSites(bx, by, r, 6); drawSites(c, s, electrons(s, -this.q * 4, dx, dy, mv), { pin: 4, ein: -3, step: 10, sz: 4.5 });
+    } else {
+      const n = Math.round(Math.abs(this.q) * 7); for (let i = 0; i < n; i++) { const a = Math.PI / 2 + (i - (n - 1) / 2) * 0.42 - this.th; sDot(c, bx + Math.cos(a) * r * 0.6, by + Math.sin(a) * r * 0.74, sgn(this.q), 5); }
+    }
+    tag(c, bx, by + r + 18, this.q);
+  }
+  drawOver(c) { const v = this.w.vdg; if (this.showGap && v && !this.held) gapLine(c, v, this.bx, this.by, this.r, 260); }
+}
+
+/* A patch of hair or cloth on a stand. Drag a rubbable object across it to charge both. */
+class RubPad extends Prop {
+  constructor(w, o = {}) {
+    super(w); Object.assign(this, { x: 810, y: 300, wd: 130, ht: 86, material: 'Human hair', label: 'hair', q: 0, hidden: false }, o);
+    this.last = new Map(); this.rubT = 0; this.fib = []; for (let i = 0; i < 110; i++) this.fib.push({ x: rnd(5, this.wd - 5), y: rnd(8, this.ht - 2), l: rnd(9, 18), a: rnd(-0.55, 0.55) });
+  }
+  update(dt) {
+    this.rubT = Math.max(0, this.rubT - dt); if (this.hidden) return;
+    for (const p of this.w.props) {
+      if (!p.canRub) continue; const bx = p.bx, by = p.by, r = p.r || 10, l = this.last.get(p);
+      const inside = bx > this.x - r * 0.6 && bx < this.x + this.wd + r * 0.6 && by > this.y - r * 0.8 && by < this.y + this.ht + r * 0.8;
+      if (inside && l && p.held) { const d = hyp(bx - l[0], by - l[1]); if (d > 0.4 && d < 90) { const b = p.q; p.rubWith(this.material, d); this.q -= p.q - b; this.rubT = 0.3; } }
+      this.last.set(p, [bx, by]);
+    }
+  }
+  draw(c) {
+    if (this.hidden) return; const { x, y, wd, ht } = this, m = MATCOL[this.material] || ['#888', '#ccc'];
+    c.fillStyle = '#46515f'; c.fillRect(x + wd / 2 - 4, y + ht - 2, 8, BENCH - y - ht + 2); rr(c, x + wd / 2 - 26, BENCH - 7, 52, 7, 3); c.fill();
+    c.fillStyle = m[0]; rr(c, x, y, wd, ht, 16); c.fill();
+    let lx = 0, ly = 0;   // fibres lean toward (or away from) a nearby charged object
+    if (Math.abs(this.q) > 0.1) for (const p of this.w.props) if (p.canRub !== undefined && Math.abs(p.q) > 0.1 && p.bx !== undefined) { const dx = p.bx - (x + wd / 2), dy = p.by - (y + ht / 2), d = hyp(dx, dy) || 1; if (d < 190) { const k = clamp(1 - d / 190, 0, 1) * -sgn(p.q * this.q) * 1.6; lx += dx / d * k; ly += dy / d * k; } }
+    c.strokeStyle = m[1]; c.lineWidth = 1.4; c.lineCap = 'round'; c.beginPath();
+    for (const f of this.fib) { const a = -Math.PI / 2 + f.a + (this.rubT > 0 ? Math.sin(this.w.t * 45 + f.x) * 0.35 : 0), dx = Math.cos(a) + lx, dy = Math.sin(a) + ly, n = hyp(dx, dy) || 1, l = f.l * (1 + 0.35 * Math.min(1, hyp(lx, ly))); c.moveTo(x + f.x, y + f.y); c.lineTo(x + f.x + dx / n * l, y + f.y + dy / n * l); }
+    c.stroke();
+    label(c, this.label, x + wd / 2, y - 16, { font: FONT(15), col: '#c5cfdb' });
+  }
+  drawCharges(c) {
+    if (this.hidden) return; const n = Math.round(Math.abs(this.q) * 8);
+    for (let i = 0; i < n; i++) sDot(c, this.x + 20 + (i % 4) * ((this.wd - 40) / 3), this.y + this.ht * (i < 4 ? 0.36 : 0.7), sgn(this.q), 5);
+    tag(c, this.x + this.wd / 2, this.y + this.ht + 16, this.q);
+  }
+}
+
+/* Paper plate of tissue bits */
+class PaperBits extends Prop {
+  constructor(w, o = {}) {
+    super(w); this.x = o.x ?? 650; this.y = o.y ?? 430; this.gap = 999; this.jumped = 0; this.bits = [];
+    for (let i = 0; i < 24; i++) this.bits.push({ ox: rnd(-42, 42), oy: rnd(-6, 0), a: rnd(TAU), s: rnd(4, 7), col: ['#f4f1e8', '#f7d0c8', '#cfe1f7', '#e3f0c8'][i % 4], st: 0, x: 0, y: 0, vx: 0, vy: 0, th: rnd(0.2, 1), ang: 0 });
+  }
+  update(dt) {
+    const v = this.w.vdg; if (!v) return; this.gap = hyp(this.x - v.x, this.y - 6 - v.y) - v.R;
+    for (const b of this.bits) {
+      if (b.st === 0) { b.x = this.x + b.ox; b.y = this.y - 5 + b.oy; const d = Math.max(hyp(b.x - v.x, b.y - v.y) - v.R, 8); if (v.Q * v.Q * (90 / d) ** 2 > 0.35 + b.th * 0.9) { b.st = 1; b.vx = b.vy = 0; this.jumped++; } }
+      else if (b.st === 1) {
+        const dx = v.x - b.x, dy = v.y - b.y, d = hyp(dx, dy) || 1, a = 2400 * v.Q * v.Q + 200;
+        b.vx = (b.vx + dx / d * a * dt) * 0.97; b.vy = (b.vy + dy / d * a * dt) * 0.97; b.x += b.vx * dt; b.y += b.vy * dt; b.a += dt * 9;
+        if (hyp(b.x - v.x, b.y - v.y) <= v.R + 2) { b.st = 2; b.ang = Math.atan2(b.y - v.y, b.x - v.x); } else if (Math.abs(v.Q) < 0.05) b.st = 3;
+      }
+      else if (b.st === 2) { b.x = v.x + Math.cos(b.ang) * (v.R + 2); b.y = v.y + Math.sin(b.ang) * (v.R + 2); if (Math.abs(v.Q) < 0.06) { b.st = 3; b.vx = Math.cos(b.ang) * 40; b.vy = 0; } }
+      else if (b.st === 3) {
+        b.vy = Math.min(b.vy + 420 * dt, 140); b.vx = b.vx * 0.98 + Math.sin(this.w.t * 5 + b.a) * 2; b.x += b.vx * dt; b.y += b.vy * dt; b.a += dt * 3;
+        const dx = b.x - v.x, dy = b.y - v.y, d = hyp(dx, dy) || 1; if (d < v.R + 2) { b.x = v.x + dx / d * (v.R + 2); b.y = v.y + dy / d * (v.R + 2); b.vx += sgn(dx || 1) * 30; }
+        if (b.y >= BENCH - 2) { b.y = BENCH - 2; b.st = 4; }
+      }
+    }
+  }
+  pick(x, y) { if (Math.abs(x - this.x) > 64 || Math.abs(y - this.y) > 18) return null; return grab(this, x, y, { fix: (nx, ny) => { [nx, ny] = pushOut(this.w, nx, ny - 6, 6); return [clamp(nx, 70, W - 70), clamp(ny + 6, 40, BENCH - 6)]; } }); }
+  draw(c) {
+    c.fillStyle = '#e8e4d8'; c.beginPath(); c.ellipse(this.x, this.y, 60, 9, 0, 0, TAU); c.fill(); c.fillStyle = '#f7f4ea'; c.beginPath(); c.ellipse(this.x, this.y - 2, 50, 6, 0, 0, TAU); c.fill();
+    label(c, 'paper bits', this.x, this.y + 22, { font: FONT(13), col: '#c5cfdb' });
+    for (const b of this.bits) { c.save(); c.translate(b.x, b.y); c.rotate(b.a); c.fillStyle = b.col; c.fillRect(-b.s / 2, -b.s / 3, b.s, b.s * 0.66); c.restore(); }
+  }
+  drawOver(c) { const v = this.w.vdg; if (v && this.held) gapLine(c, v, this.x, this.y - 6, 0, 200); }
+}
+
+/* Upside-down pie tins */
+class TinStack extends Prop {
+  constructor(w, o = {}) {
+    super(w); this.x = o.x ?? 690; this.y = BENCH; this.n = o.n ?? 6; this.onDome = false; this.flown = 0; this.cool = 0; this.tins = [];
+    for (let i = 0; i < this.n; i++) this.tins.push({ st: 0, x: 0, y: 0, vx: 0, vy: 0, a: 0, va: 0, q: 0 });
+    if (o.onDome) this.snap();
+  }
+  snap() { const v = this.w.vdg; this.onDome = true; this.x = v.x; this.y = v.y - v.R + 2; }
+  slot(i) { return this.y - 5 - i * 7; }
+  top() { for (let i = this.n - 1; i >= 0; i--) if (this.tins[i].st === 0) return i; return -1; }
+  update(dt) {
+    const v = this.w.vdg; this.cool -= dt;
+    if (this.onDome && !this.held && this.cool <= 0 && Math.abs(v.Q) > 0.42) {
+      const i = this.top(); if (i >= 0) { const t = this.tins[i], dir = Math.random() < 0.5 ? -1 : 1; t.st = 1; t.x = this.x; t.y = this.slot(i); t.vx = dir * rnd(60, 230); t.vy = -rnd(330, 470) * (0.55 + 0.45 * Math.abs(v.Q)); t.va = dir * rnd(2, 7); t.q = sgn(v.Q); v.Q *= 0.9; this.cool = rnd(0.45, 0.85); this.flown++; audio.snap(0.2); }
+    }
+    for (const t of this.tins) if (t.st === 1) { t.vy += 620 * dt; t.x += t.vx * dt; t.y += t.vy * dt; t.a += t.va * dt; if (t.y > BENCH - 5) { t.y = BENCH - 5; t.st = 2; t.a = 0; } }
+  }
+  pick(x, y) {
+    const left = this.tins.filter(t => t.st === 0).length; if (!left || this.flown) return null;
+    if (Math.abs(x - this.x) > 46 || y > this.y + 4 || y < this.y - 14 - left * 7) return null;
+    return grab(this, x, y, { fix: (nx, ny) => { this.onDome = false; [nx, ny] = pushOut(this.w, nx, ny, 3); return [clamp(nx, 50, W - 50), Math.min(ny, BENCH)]; }, end: () => { const v = this.w.vdg; if (hyp(this.x - v.x, this.y - (v.y - v.R)) < 64) this.snap(); else this.y = BENCH; } });
+  }
+  tin(c, x, y, a) {
+    c.save(); c.translate(x, y); c.rotate(a); const g = c.createLinearGradient(-40, 0, 40, 0); g.addColorStop(0, '#8e99a6'); g.addColorStop(0.45, '#f1f4f7'); g.addColorStop(1, '#7e8996');
+    c.fillStyle = g; c.beginPath(); c.moveTo(-26, -4); c.lineTo(26, -4); c.lineTo(40, 3); c.lineTo(-40, 3); c.closePath(); c.fill(); c.strokeStyle = 'rgba(40,50,60,.6)'; c.lineWidth = 1; c.stroke(); c.restore();
+  }
+  draw(c) {
+    this.tins.forEach((t, i) => { if (t.st === 0) this.tin(c, this.x, this.slot(i), 0); else this.tin(c, t.x, t.y, t.a); });
+    if (!this.onDome && !this.flown) label(c, 'pie tins: drag onto the dome', this.x, this.y - 22 - this.n * 7, { font: FONT(13), col: '#c5cfdb' });
+  }
+  drawCharges(c) {
+    const v = this.w.vdg, i = this.top();
+    if (this.onDome && i >= 0 && Math.abs(v.Q) > 0.12) { sDot(c, this.x - 18, this.slot(i) - 9, sgn(v.Q), 4.5); sDot(c, this.x + 18, this.slot(i) - 9, sgn(v.Q), 4.5); }
+    for (const t of this.tins) if (t.st === 1) sDot(c, t.x, t.y, t.q, 4.5);
+  }
+}
+
+/* Light strands fixed at one end: tissue streamers on the dome, hair on a head */
+class Strands extends Prop {
+  constructor(w, o = {}) {
+    super(w);
+    Object.assign(this, { n: 11, m: 9, seg: 13, cx: 0, cy: 0, R: 70, base: -Math.PI / 2, spread: 0.6, width: 4, grav: 620, A: 3300, rep: 5200, qfn: () => 0, colors: ['#f6efdc', '#f3c9c0', '#cfe3f7', '#f5e3a8'], tape: false, attract: true }, o);
+    this.s = [];
+    for (let i = 0; i < this.n; i++) {
+      const a = this.base + (this.n > 1 ? (i / (this.n - 1) - 0.5) * 2 * this.spread : 0), pts = [];
+      for (let k = 0; k < this.m; k++) { const r = this.R + 1 + k * this.seg, x = this.cx + Math.cos(a) * r, y = this.cy + Math.sin(a) * r; pts.push({ x, y, px: x, py: y }); }
+      this.s.push({ pts });
+    }
+  }
+  step(h) {
+    const q = this.qfn(), q2 = q * q, gs = this.attract && q2 > 0.01 ? this.w.grounds() : [], h2 = h * h;
+    for (const st of this.s) {
+      const P = st.pts;
+      for (let k = 1; k < this.m; k++) {
+        const p = P[k]; let ax = 0, ay = this.grav;
+        const dx = p.x - this.cx, dy = p.y - this.cy, d = hyp(dx, dy) || 1, e = this.A * q2 / (d / this.R); ax += dx / d * e; ay += dy / d * e;
+        if (q2 > 0.01) {
+          for (const o of this.s) { if (o === st) continue; const op = o.pts[k], ex = p.x - op.x, ey = p.y - op.y, dd = ex * ex + ey * ey + 60, f = this.rep * q2 / dd / Math.sqrt(dd); ax += ex * f; ay += ey * f; }
+          for (const g of gs) { const ex = g.x - p.x, ey = g.y - p.y, dd = hyp(ex, ey) || 1; if (dd < 190) { const f = 2600 * q2 * (1 - dd / 190) ** 1.5; ax += ex / dd * f; ay += ey / dd * f; } }
+          ax += rnd(-1, 1) * 260 * q2; ay += rnd(-1, 1) * 260 * q2;
+        }
+        const vx = (p.x - p.px) * 0.96, vy = (p.y - p.py) * 0.96; p.px = p.x; p.py = p.y; p.x += vx + ax * h2; p.y += vy + ay * h2;
+      }
+      for (let it = 0; it < 3; it++) for (let k = 1; k < this.m; k++) {
+        const a = P[k - 1], b = P[k], dx = b.x - a.x, dy = b.y - a.y, d = hyp(dx, dy) || 1, f = (d - this.seg) / d;
+        if (k === 1) { b.x -= dx * f; b.y -= dy * f; } else { a.x += dx * f * 0.5; a.y += dy * f * 0.5; b.x -= dx * f * 0.5; b.y -= dy * f * 0.5; }
+        const ex = b.x - this.cx, ey = b.y - this.cy, r = hyp(ex, ey) || 1, m = this.R + 1.5; if (r < m) { b.x = this.cx + ex / r * m; b.y = this.cy + ey / r * m; }
+      }
+    }
+  }
+  update(dt) { const h = Math.min(dt, 0.034) / 2; this.step(h); this.step(h); }
+  draw(c) {
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = this.width;
+    this.s.forEach((st, i) => { const P = st.pts; c.strokeStyle = this.colors[i % this.colors.length]; c.beginPath(); c.moveTo(P[0].x, P[0].y); for (let k = 1; k < P.length - 1; k++) c.quadraticCurveTo(P[k].x, P[k].y, (P[k].x + P[k + 1].x) / 2, (P[k].y + P[k + 1].y) / 2); c.lineTo(P[P.length - 1].x, P[P.length - 1].y); c.stroke(); });
+    if (this.tape) { c.fillStyle = '#e4dcc2'; rr(c, this.cx - 24, this.cy - this.R - 4, 48, 7, 2); c.fill(); }
+  }
+  drawCharges(c) { const q = this.qfn(); if (Math.abs(q) < 0.15 || (this.w.vdg && this.w.vdg.mystery)) return; this.s.forEach((st, i) => { if (i % 2) return; const p = st.pts[st.pts.length - 2]; sDot(c, p.x, p.y, sgn(q), 4.5); }); }
+}
+const streamers = w => new Strands(w, { cx: w.vdg.x, cy: w.vdg.y, R: w.vdg.R, qfn: () => w.vdg.Q, tape: true });
+
+/* A straight thing held by one end: pipes, rods, straws, a ruler */
+const ROD = {
+  pvc: { col: '#e9ecef', edge: '#ffffff', thick: 11, name: 'PVC pipe (plastic)' },
+  metal: { col: '#aab4c0', edge: '#f4f7fa', thick: 6, name: 'metal rod' },
+  straw: { col: '#e85d5d', edge: '#ffd9d9', thick: 6, name: 'plastic straw' },
+  foil: { col: '#c9d0d8', edge: '#ffffff', thick: 7, name: 'foil-wrapped straw' },
+  ruler: { col: 'rgba(250,214,90,.8)', edge: '#fff2b0', thick: 9, name: 'plastic ruler' },
+  tube: { col: 'rgba(235,240,246,.5)', edge: '#ffffff', thick: 13, name: 'fluorescent tube' }
+};
+class Rod extends Prop {
+  constructor(w, o = {}) {
+    super(w); Object.assign(this, { x: 640, y: 320, len: 200, ang: 0.3, cond: false, style: 'pvc', tipQ: 0 }, o);
+    this.thick = ROD[this.style].thick; this.name = o.name || ROD[this.style].name; this.dir = 1; this.touching = false; this.hits = 0;
+  }
+  get ex() { return this.x + this.dir * Math.cos(this.ang) * this.len; }
+  get ey() { return this.y + Math.sin(this.ang) * this.len; }
+  update(dt) {
+    const w = this.w, v = w.vdg; if (!v) return;
+    this.dir = ease(this.dir, this.x < v.x ? -1 : 1, 10, dt);
+    this.touching = !v.domeOff && hyp(this.x - v.x, this.y - v.y) - v.R - this.thick / 2 <= 2;
+    if (this.cond) { if (groundProbe(w, this.x, this.y, this.thick / 2, this, (sx, sy) => [[sx, sy], [this.x, this.y], [this.ex, this.ey], [this.ex + this.dir * 40, this.ey + 70]])) this.hits++; }
+    else if (this.touching) this.tipQ = 0.05 * v.Q;
+  }
+  grounds(o) { if (this.cond) o.push({ x: this.x, y: this.y, r: this.thick / 2 }); }
+  pick(x, y) {
+    if (segDist(x, y, this.x, this.y, this.ex, this.ey) > 13) return null;
+    return grab(this, x, y, { fix: (nx, ny) => { [nx, ny] = pushOut(this.w, nx, ny, this.thick / 2); return [clamp(nx, 16, W - 16), clamp(ny, 16, BENCH - 14 - Math.sin(this.ang) * this.len)]; } });
+  }
+  draw(c) {
+    const s = ROD[this.style], x2 = this.ex, y2 = this.ey, a = Math.atan2(y2 - this.y, x2 - this.x), nx = -Math.sin(a), ny = Math.cos(a);
+    c.lineCap = 'round'; c.strokeStyle = s.col; c.lineWidth = this.thick; c.beginPath(); c.moveTo(this.x, this.y); c.lineTo(x2, y2); c.stroke();
+    c.strokeStyle = s.edge; c.globalAlpha = 0.6; c.lineWidth = Math.max(1.3, this.thick * 0.2); c.beginPath(); c.moveTo(this.x - nx * this.thick * 0.22, this.y - ny * this.thick * 0.22); c.lineTo(x2 - nx * this.thick * 0.22, y2 - ny * this.thick * 0.22); c.stroke(); c.globalAlpha = 1;
+    if (this.style === 'straw' || this.style === 'ruler' || this.style === 'foil') {
+      c.strokeStyle = this.style === 'straw' ? '#ffffff' : this.style === 'foil' ? 'rgba(70,80,92,.5)' : 'rgba(60,45,0,.55)'; c.lineWidth = this.style === 'straw' ? 2.4 : 1; c.lineCap = 'butt'; c.beginPath();
+      for (let d = 8; d < this.len * 0.84; d += this.style === 'ruler' ? 9 : 13) { const px = lerp(this.x, x2, d / this.len), py = lerp(this.y, y2, d / this.len), k = this.thick * (this.style === 'ruler' ? 0.25 : 0.5); c.moveTo(px - nx * k + (this.style === 'ruler' ? 0 : 3), py - ny * k); c.lineTo(px + nx * this.thick * 0.5 - (this.style === 'ruler' ? 0 : 3), py + ny * this.thick * 0.5); }
+      c.stroke();
+    }
+    if (this.style === 'tube') { c.strokeStyle = '#7d8896'; c.lineWidth = this.thick + 2; c.lineCap = 'butt'; c.beginPath(); c.moveTo(this.x, this.y); c.lineTo(lerp(this.x, x2, 0.035), lerp(this.y, y2, 0.035)); c.moveTo(lerp(this.x, x2, 0.965), lerp(this.y, y2, 0.965)); c.lineTo(x2, y2); c.stroke(); }
+    grip(c, lerp(this.x, x2, 0.9), lerp(this.y, y2, 0.9), a);
+    label(c, this.name, lerp(this.x, x2, 0.45), lerp(this.y, y2, 0.45) + 22, { font: FONT(13), col: '#c5cfdb' });
+  }
+  drawCharges(c) { if (!this.cond && Math.abs(this.tipQ) > 0.01 && this.style !== 'tube') sDot(c, this.x + this.dir * 8, this.y + 3, sgn(this.tipQ), 3.5); }
+}
+class Tube extends Rod {
+  constructor(w, o = {}) { super(w, Object.assign({ style: 'tube', len: 250, ang: 0.22 }, o)); this.glowv = 0; this.fl = 0; }
+  update(dt) {
+    super.update(dt); const w = this.w, v = w.vdg; if (!v) return;
+    const near = clamp(1 - Math.max(0, hyp(this.x - v.x, this.y - v.y) - v.R - this.thick / 2) / 150, 0, 1); let g = Math.abs(v.Q) * near;
+    if (g > 0.05 && !v.domeOff) { g = clamp(g * 1.7, 0, 1) * (0.72 + 0.2 * Math.sin(w.t * 53) + rnd(-0.1, 0.1)); v.drain += 0.55 * near; if (w.t > this.fl) { const p = [[this.x, this.y], [this.ex, this.ey], [this.ex + this.dir * 40, this.ey + 70]]; w.flow(v.Q < 0 ? p : p.reverse(), 0.9, 3); this.fl = w.t + 0.7; } }
+    else g = 0;
+    this.glowv = ease(this.glowv, g, 30, dt);
+  }
+  light(c, k) {
+    if (this.glowv < 0.02) return; const x2 = this.ex, y2 = this.ey, a = this.glowv, g = c.createLinearGradient(this.x, this.y, x2, y2);
+    g.addColorStop(0, `rgba(220,238,255,${a})`); g.addColorStop(0.6, `rgba(170,205,255,${a * 0.75})`); g.addColorStop(1, `rgba(150,190,255,${a * 0.3})`);
+    c.save(); c.globalCompositeOperation = 'lighter'; c.lineCap = 'round'; c.strokeStyle = g; c.shadowColor = '#a8c8ff'; c.shadowBlur = 26 * k; c.lineWidth = this.thick * k; c.beginPath(); c.moveTo(this.x, this.y); c.lineTo(x2, y2); c.stroke(); c.restore();
+  }
+  draw(c) { super.draw(c); this.light(c, 1); }
+  glow(c) { this.light(c, 1.5); }
+}
+
+/* Small metal sphere on an insulating handle */
+class Probe extends Prop {
+  constructor(w, o = {}) { super(w); Object.assign(this, { x: 560, y: 320, r: 14, q: 0 }, o); this.dir = 1; this.shares = 0; }
+  end() { return { x: this.x + this.dir * 46, y: this.y + 80 }; }
+  update(dt) {
+    const w = this.w, v = w.vdg;
+    if (v) {
+      this.dir = ease(this.dir, this.x < v.x ? -1 : 1, 10, dt);
+      const dx = this.x - v.x, dy = this.y - v.y, d = hyp(dx, dy) || 1, gap = d - v.R - this.r, diff = v.Q - this.q;
+      if (!v.domeOff && Math.abs(diff) > 0.03 && gap <= Math.max(2, Math.abs(diff) * 10)) {
+        const a = [v.x + dx / d * (v.R - 6), v.y + dy / d * (v.R - 6)], b = [this.x, this.y];
+        if (Math.abs(diff) > 0.1) { w.spark(v.x + dx / d * v.R, v.y + dy / d * v.R, this.x - dx / d * this.r, this.y - dy / d * this.r, 0.4); w.flow(diff < 0 ? [a, b] : [b, a], 0.5, 3); }
+        this.q = v.Q; v.Q -= diff * 0.07; this.shares++;
+      }
+    }
+    for (const g of w.grounds()) if (Math.abs(this.q) > 0.03 && hyp(this.x - g.x, this.y - g.y) < this.r + g.r + 2) { w.spark(this.x, this.y, g.x, g.y, 0.3); this.q = 0; }
+  }
+  sources(o) { if (Math.abs(this.q) > 0.02) o.push({ x: this.x, y: this.y, q: this.q, r: this.r, k: 0.5, cond: true }); }
+  pick(x, y) {
+    const e = this.end(); if (hyp(x - this.x, y - this.y) > this.r + 7 && segDist(x, y, this.x, this.y, e.x, e.y) > 12) return null;
+    return grab(this, x, y, { fix: (nx, ny) => { [nx, ny] = pushOut(this.w, nx, ny, this.r); for (const p of this.w.props) if (p instanceof Scope) { const dx = nx - p.kx, dy = ny - p.ky, d = hyp(dx, dy) || 1, m = this.r + 13; if (d < m) { nx = p.kx + dx / d * m; ny = p.ky + dy / d * m; } } return [clamp(nx, 20, W - 20), clamp(ny, 20, BENCH - 90)]; } });
+  }
+  draw(c) {
+    const e = this.end(), a = Math.atan2(e.y - this.y, e.x - this.x);
+    c.lineCap = 'round'; c.strokeStyle = 'rgba(190,230,250,.6)'; c.lineWidth = 7; c.beginPath(); c.moveTo(this.x, this.y); c.lineTo(e.x, e.y); c.stroke();
+    grip(c, lerp(this.x, e.x, 0.92), lerp(this.y, e.y, 0.92), a);
+    const g = c.createRadialGradient(this.x - 5, this.y - 6, 1, this.x, this.y, this.r * 1.1); g.addColorStop(0, '#fff'); g.addColorStop(0.35, '#d7dde5'); g.addColorStop(1, '#5d6877'); c.fillStyle = g; disc(c, this.x, this.y, this.r); c.fill();
+    label(c, 'metal sphere, insulating handle', e.x + this.dir * 6, e.y + 26, { font: FONT(13), col: '#c5cfdb' });
+  }
+  drawCharges(c) { const s = circleSites(this.x, this.y, this.r, 6); drawSites(c, s, electrons(s, -this.q * 4), { pin: 5, ein: -3, step: 10, sz: 4.5 }); tag(c, this.x, this.y - this.r - 16, this.q); }
+}
+
+/* Metal-leaf electroscope that slides along the stand */
+class Scope extends Prop {
+  constructor(w, o = {}) {
+    super(w); Object.assign(this, { x: 760, q: 0, finger: false, fixed: false }, o);
+    this.base = w.shelf ? w.shelf.y : BENCH; this.ang = 0; this.I = 0; this.Idome = 0; this.Lq = 0; this.fl = 0;
+  }
+  get kx() { return this.x; } get ky() { return this.base - 172; }
+  update(dt) {
+    const w = this.w, v = w.vdg; let I = 0; this.Idome = 0;
+    for (const s of w.sources(this)) { const d = Math.max(hyp(this.kx - s.x, this.ky - s.y), s.r + 6), k = 1.5 * (s.k ?? 1) * s.q * (s.r / d) ** 2; I += k; if (s.dome) this.Idome = k; }
+    this.I = I;
+    for (const p of w.props) {
+      if (p instanceof Probe) {
+        if (hyp(p.x - this.kx, p.y - this.ky) <= p.r + 15 && Math.abs(p.q - this.q) > 0.03) {
+          const up = [[p.x, p.y], [this.kx, this.ky], [this.kx, this.base - 72]]; if (Math.abs(p.q - this.q) > 0.1) w.spark(p.x, p.y, this.kx, this.ky, 0.3);
+          w.flow(p.q < this.q ? up : up.slice().reverse(), 0.6, 3); p.q = this.q = (p.q + this.q) / 2; w.flags.scopeShare = w.t;
+        }
+      } else if (p instanceof Rod && !p.cond && hyp(p.x - this.kx, p.y - this.ky) <= p.thick / 2 + 16) { this.q += p.tipQ * 0.6; p.tipQ *= 0.4; w.flags.rulerOnScope = w.t; }
+    }
+    if (v && !v.domeOff) {
+      const dx = this.kx - v.x, dy = this.ky - v.y, d = hyp(dx, dy) || 1, gap = d - v.R - 13;
+      if (Math.abs(v.Q) > 0.15 && Math.abs(v.Q - this.q) * SPARK_GAP * 0.5 > gap) { w.spark(v.x + dx / d * v.R, v.y + dy / d * v.R, this.kx - dx / d * 13, this.ky - dy / d * 13, 0.7); this.q = v.Q; v.Q *= 0.9; w.flags.scopeSparked = true; toast('A spark jumped to the electroscope, so it was charged by contact instead. Keep it a little farther from the dome.'); }
+    }
+    if (this.finger) {
+      const tgt = -I;
+      if (Math.abs(this.q - tgt) > 0.04 && w.t > this.fl) { const up = [[this.kx, this.base - 72], [this.kx, this.ky], [this.kx + 46, this.ky - 34], [this.kx + 100, this.ky - 74]]; w.flow(tgt < this.q ? up.slice().reverse() : up, 0.7, 4); this.fl = w.t + 0.8; }
+      this.q = ease(this.q, tgt, 14, dt); if (Math.abs(I) < 0.03) w.flags.scopeSparked = false;
+    }
+    this.Lq = this.q + I; this.ang = ease(this.ang, clamp((Math.abs(this.Lq) - 0.03) * 1.6, 0, 1), 9, dt);
+  }
+  pick(x, y) {
+    if (this.fixed || Math.abs(x - this.x) > 48 || y < this.base - 190 || y > this.base) return null;
+    const self = this, v = this.w.vdg, sh = this.w.shelf, ox = this.x - x, dy = v ? this.ky - v.y : 0;
+    const minX = v ? v.x + Math.sqrt(Math.max(0, (v.R + 27) ** 2 - dy * dy)) : 60;
+    return { move(mx) { self.x = clamp(mx + ox, Math.max(minX, sh ? sh.x1 + 46 : 60), (sh ? sh.x2 : W) - 50); }, end() {} };
+  }
+  draw(c) {
+    const x = this.x, b = this.base, ky = this.ky;
+    c.fillStyle = 'rgba(170,215,235,.16)'; rr(c, x - 44, b - 118, 88, 118, [22, 22, 6, 6]); c.fill(); c.strokeStyle = 'rgba(210,235,250,.55)'; c.lineWidth = 1.5; c.stroke();
+    c.fillStyle = '#1c222b'; rr(c, x - 15, b - 130, 30, 16, 4); c.fill();
+    c.strokeStyle = '#d2b04c'; c.lineWidth = 4; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, ky); c.lineTo(x, b - 72); c.stroke();
+    c.strokeStyle = '#f3d778'; c.lineWidth = 3; for (const s of [-1, 1]) { c.beginPath(); c.moveTo(x, b - 72); c.lineTo(x + s * Math.sin(this.ang) * 46, b - 72 + Math.cos(this.ang) * 46); c.stroke(); }
+    const g = c.createRadialGradient(x - 4, ky - 5, 1, x, ky, 14); g.addColorStop(0, '#fff6cf'); g.addColorStop(0.4, '#e2c05a'); g.addColorStop(1, '#8a6f22'); c.fillStyle = g; disc(c, x, ky, 13); c.fill();
+    if (this.finger) hand(c, x + 11, ky - 8, -0.65);
+    label(c, 'electroscope', x, b + 22 > BENCH ? b - 8 : b + 22, { font: FONT(13), col: '#c5cfdb' });
+  }
+  drawCharges(c) {
+    const x = this.x, b = this.base, ks = circleSites(x, this.ky, 13, 6), kq = -this.I, n = Math.round(clamp(Math.abs(this.Lq) * 5, 0, 4));
+    drawSites(c, ks, electrons(ks, -kq * 5), { pin: 5, ein: -3, step: 10, sz: 4.5 });
+    for (const s of [-1, 1]) for (let i = 0; i < n; i++) { const t = (i + 1) / (n + 0.6) * 46; sDot(c, x + s * (Math.sin(this.ang) * t + 6), b - 72 + Math.cos(this.ang) * t, sgn(this.Lq), 4); }
+    tag(c, x, b - 12, this.q);
+  }
+}
+
+/* Soda can lying on its side on the tray */
+class RollCan extends Prop {
+  constructor(w, o = {}) {
+    super(w); const d = w.vdg; this.r = 19; this.x = o.x ?? 549; this.y = w.shelf.y - this.r; this.v = 0; this.q = 0; this.rot = 0; this.x0 = this.x; this.touches = 0;
+    this.minX = d.x + Math.sqrt((d.R + this.r) ** 2 - (this.y - d.y) ** 2); this.maxX = w.shelf.x2 - this.r - 4;
+  }
+  update(dt) {
+    const w = this.w, v = w.vdg; if (this.held) { this.v = 0; this.q = 0; return; }
+    const dx = this.x - v.x, dy = this.y - v.y, d = hyp(dx, dy), u = d / v.R, ox = this.x;
+    const a = (-5200 * (v.Q - this.q) ** 2 / u ** 4 + 500 * v.Q * this.q / (u * u)) * dx / d;
+    this.v = (this.v + a * dt) * Math.exp(-dt * 1.2); this.x += this.v * dt;
+    if (this.x <= this.minX) { this.x = this.minX; const df = Math.abs(v.Q - this.q); if (df > 0.05) { if (df > 0.2) w.spark(v.x + v.R, v.y, v.x + v.R + 5, v.y, 0.35); this.q = v.Q; v.Q *= 0.94; this.touches++; } this.v = Math.abs(this.v) * 0.15; }
+    if (this.x >= this.maxX) { this.x = this.maxX; this.v = -Math.abs(this.v) * 0.3; }
+    this.rot += (this.x - ox) / this.r; this.q *= Math.exp(-dt / 2.2);
+  }
+  pick(x, y) { if (hyp(x - this.x, y - this.y) > this.r + 6) return null; return grab(this, x, y, { fix: nx => [clamp(nx, this.minX + 2, this.maxX), this.y], end: () => { this.x0 = this.x; } }); }
+  draw(c) {
+    const g = c.createRadialGradient(this.x - 6, this.y - 7, 2, this.x, this.y, this.r * 1.1); g.addColorStop(0, '#f6f8fa'); g.addColorStop(0.5, '#b9c2cc'); g.addColorStop(1, '#69747f');
+    c.fillStyle = g; disc(c, this.x, this.y, this.r); c.fill(); c.strokeStyle = '#d7392f'; c.lineWidth = 2.5; disc(c, this.x, this.y, this.r - 1.2); c.stroke();
+    c.save(); c.translate(this.x, this.y); c.rotate(this.rot); c.strokeStyle = 'rgba(40,48,58,.55)'; c.lineWidth = 1.2; disc(c, 0, 0, this.r - 6); c.stroke(); c.fillStyle = 'rgba(40,48,58,.6)'; c.beginPath(); c.ellipse(0, -6, 3.2, 5.5, 0, 0, TAU); c.fill(); c.restore();
+    label(c, 'soda can', this.x, this.y - this.r - (S.charges ? 34 : 12), { font: FONT(13), col: '#c5cfdb' });
+  }
+  drawCharges(c) {
+    const v = this.w.vdg, d = hyp(v.x - this.x, v.y - this.y), s = circleSites(this.x, this.y, this.r, 10);
+    drawSites(c, s, electrons(s, -this.q * 5, (v.x - this.x) / d * sgn(v.Q), (v.y - this.y) / d * sgn(v.Q), clamp(Math.abs(v.Q - this.q) * 9 / (d / v.R) ** 2, 0, 4)), { pin: 6, ein: -3, step: 10, sz: 4.5 });
+    tag(c, this.x, this.y - this.r - 16, this.q);
+  }
+  drawOver(c) { if (this.held) gapLine(c, this.w.vdg, this.x, this.y, this.r, 400); }
+}
+
+/* Two soda cans standing on upside-down foam cups */
+class TwoCans extends Prop {
+  constructor(w, o = {}) { super(w); Object.assign(this, { xX: 492, xY: 528, qX: 0, qY: 0 }, o); this.cw = 36; this.ch = 66; this.cup = 44; this.together = true; this.eX = 0; this.eY = 0; }
+  get cy() { return this.w.shelf.y - this.cup - this.ch / 2; }
+  ind(x) { const v = this.w.vdg; return v ? -v.Q * 1.4 * (v.R / hyp(x - v.x, this.cy - v.y)) ** 1.3 : 0; }
+  update() {
+    const w = this.w, touching = this.xY - this.xX <= this.cw + 1.5;
+    if (this.together && !touching) { this.qX = this.eX; this.qY = this.eY; w.flags.separated = true; w.flags.sepInd = Math.abs(this.ind(this.xX)); }
+    if (!this.together && touching) this.qX = this.qY = (this.qX + this.qY) / 2;
+    this.together = touching;
+    if (touching) { const n = (this.qX + this.qY) / 2, p = this.ind(this.xX); this.eX = n + p; this.eY = n - p; } else { this.eX = this.qX; this.eY = this.qY; }
+  }
+  sources(o) { o.push({ x: this.xX, y: this.cy, q: this.eX, r: 20, k: 0.35, cond: true }, { x: this.xY, y: this.cy, q: this.eY, r: 20, k: 0.35, cond: true }); }
+  solid(o) { o.push({ x: this.xX, y: this.cy, r: 21 }, { x: this.xY, y: this.cy, r: 21 }); }
+  pick(x, y, test) {
+    const sy = this.w.shelf.y, inCup = cx => Math.abs(x - cx) < 23 && y > sy - this.cup - 2 && y < sy + 3, inCan = cx => Math.abs(x - cx) < 19 && y > sy - this.cup - this.ch && y <= sy - this.cup - 2;
+    const which = inCup(this.xX) ? 'X' : inCup(this.xY) ? 'Y' : null;
+    if (!which) { if (!test && (inCan(this.xX) || inCan(this.xY))) toast('Hold the foam cups, not the cans. Your hand would act as a ground.'); return null; }
+    const self = this, v = this.w.vdg, minX = v.x + v.R + 32, maxX = this.w.shelf.x2 - 24, ox = (which === 'X' ? this.xX : this.xY) - x;
+    return { move(mx) { const nx = mx + ox; if (which === 'X') { self.xX = clamp(nx, minX, maxX - self.cw); if (self.xY < self.xX + self.cw) self.xY = self.xX + self.cw; } else { self.xY = clamp(nx, minX + self.cw, maxX); if (self.xX > self.xY - self.cw) self.xX = self.xY - self.cw; } }, end() {} };
+  }
+  draw(c) {
+    const sy = this.w.shelf.y;
+    for (const [cx, name, col] of [[this.xX, 'X', '#d7392f'], [this.xY, 'Y', '#2f7fd7']]) {
+      c.fillStyle = '#f2f3ef'; c.beginPath(); c.moveTo(cx - 15, sy - this.cup); c.lineTo(cx + 15, sy - this.cup); c.lineTo(cx + 22, sy); c.lineTo(cx - 22, sy); c.closePath(); c.fill(); c.strokeStyle = '#c4c7c0'; c.lineWidth = 1; c.stroke();
+      const g = c.createLinearGradient(cx - 18, 0, cx + 18, 0); g.addColorStop(0, '#7f8a96'); g.addColorStop(0.4, '#eef1f4'); g.addColorStop(1, '#737e8a');
+      c.fillStyle = g; rr(c, cx - 18, sy - this.cup - this.ch, 36, this.ch, 5); c.fill(); c.fillStyle = col; c.fillRect(cx - 18, sy - this.cup - this.ch + 20, 36, 24);
+      label(c, name, cx, sy - this.cup - this.ch + 33, { font: FONT(20, 700), col: '#fff' });
+    }
+    label(c, 'foam cups: drag these', (this.xX + this.xY) / 2, sy + 22, { font: FONT(12) });
+  }
+  drawCharges(c) {
+    const v = this.w.vdg, top = this.cy - this.ch / 2 - 16;
+    for (const [cx, e] of [[this.xX, this.eX], [this.xY, this.eY]]) {
+      const s = boxSites(cx, this.cy, 36, this.ch, 3); let dx = 0, mv = 0;
+      if (!this.together && v) { dx = sgn(v.Q) * sgn(v.x - cx); mv = clamp(Math.abs(this.ind(cx)) * 3, 0, 2); }
+      drawSites(c, s, electrons(s, -e * 7, dx, 0, mv), { pin: 5, ein: -3, step: 10, sz: 4.5 });
+    }
+    if (this.together) tag(c, (this.xX + this.xY) / 2, top, this.qX + this.qY, 'X+Y');
+    else { tag(c, this.xX - 8, top, this.qX, 'X'); tag(c, this.xY + 8, top, this.qY, 'Y'); }
+  }
+}
+
+/* The hair-raising volunteer */
+class Volunteer extends Prop {
+  constructor(w, o = {}) {
+    super(w); this.fx = o.x ?? 478; this.stool = true; this.handOn = false; this.arm = 0; this.q = 0; this.lift = 44; this.fl = 0;
+    this.hair = new Strands(w, { n: 17, m: 6, seg: 7.5, R: 23, base: -0.87, spread: 1.22, width: 2.4, colors: ['#f2c14e', '#e9b23c', '#f6d06d'], grav: 520, A: 3000, rep: 1500, qfn: () => this.q, attract: false });
+    this.place();
+  }
+  get fy() { return BENCH - this.lift; }
+  head() { return { x: this.fx - 2, y: this.fy - 292 }; }
+  place() { const h = this.head(), dx = h.x - this.hair.cx, dy = h.y - this.hair.cy; this.hair.cx = h.x; this.hair.cy = h.y; for (const s of this.hair.s) for (const p of s.pts) { p.x += dx; p.y += dy; p.px += dx; p.py += dy; } }
+  handPos() { const v = this.w.vdg, a = -0.22; return { x: lerp(this.fx - 30, v.x + Math.cos(a) * (v.R + 5), this.arm), y: lerp(this.fy - 150, v.y + Math.sin(a) * (v.R + 5), this.arm) }; }
+  setHand(on) {
+    const v = this.w.vdg; if (on === this.handOn) return;
+    if (on && Math.abs(v.Q) > 0.15) { const a = -0.22; this.w.spark(v.x + Math.cos(a) * v.R, v.y + Math.sin(a) * v.R, v.x + Math.cos(a) * (v.R + 26), v.y + Math.sin(a) * (v.R + 26) - 6, 0.8); this.w.flags.zapped = true; toast('Zap! Ground the dome first, then put the hand on.'); }
+    if (!on && Math.abs(this.q) > 0.15) { this.w.flags.unsafeOff = true; toast('Careful: the volunteer is still charged. Switch off and ground the dome before the hand comes off.'); }
+    this.handOn = on;
+  }
+  setStool(on) {
+    if (this.handOn) { toast('Take the hand off the dome before changing where the volunteer stands.'); return; }
+    if (!on && Math.abs(this.q) > 0.15) { this.w.spark(this.fx - 6, BENCH - 26, this.fx - 2, BENCH - 1, 0.6); toast('Zap! Stepping down while still charged sends the charge to the ground through your feet.'); }
+    this.stool = on; if (!on) this.q = 0;
+  }
+  update(dt) {
+    const w = this.w, v = w.vdg, tl = this.stool ? 44 : 0; this.arm = ease(this.arm, this.handOn ? 1 : 0, 9, dt);
+    if (Math.abs(this.lift - tl) > 0.2) { this.lift = ease(this.lift, tl, 9, dt); this.place(); }
+    if (this.handOn) {
+      if (this.stool) this.q = ease(this.q, v.Q, 12, dt);
+      else { v.drain += 22; this.q = v.Q; if (v.on && w.t > this.fl) { const h = this.handPos(), p = [[h.x, h.y], [this.fx - 14, this.fy - 250], [this.fx, this.fy - 150], [this.fx, BENCH]]; w.flow(v.sign < 0 ? p : p.reverse(), 1, 5); this.fl = w.t + 0.9; } }
+    } else this.q *= Math.exp(-dt / (this.stool ? 9 : 0.05));
+    this.hair.update(dt);
+  }
+  draw(c) {
+    const fx = this.fx, fy = this.fy, h = this.head(), hp = this.handPos(), sh = { x: fx - 12, y: fy - 250 };
+    if (this.lift > 1) { c.fillStyle = '#2e9c93'; rr(c, fx - 44, BENCH - this.lift, 88, this.lift, [6, 6, 2, 2]); c.fill(); c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(fx - 44, BENCH - this.lift + 8, 88, 3); label(c, 'plastic stool (insulator)', fx + 52, BENCH - this.lift / 2, { align: 'left', font: FONT(13), col: '#c5cfdb' }); }
+    else label(c, 'standing on the floor', fx + 34, BENCH - 16, { align: 'left', font: FONT(13), col: '#c5cfdb' });
+    c.fillStyle = '#2b3442'; rr(c, fx - 16, fy - 156, 15, 150, 5); c.fill(); rr(c, fx + 2, fy - 156, 15, 150, 5); c.fill();
+    c.fillStyle = '#e9edf2'; rr(c, fx - 26, fy - 9, 26, 9, 4); c.fill(); rr(c, fx - 8, fy - 9, 26, 9, 4); c.fill();
+    c.fillStyle = C.sleeve; rr(c, fx - 24, fy - 262, 44, 116, 12); c.fill();
+    c.fillStyle = C.skin; c.fillRect(fx - 8, fy - 274, 12, 14); disc(c, h.x, h.y, 23); c.fill();
+    this.hair.draw(c);
+    c.fillStyle = '#1c222b'; disc(c, h.x - 11, h.y - 2, 2.2); c.fill();
+    c.strokeStyle = '#1c222b'; c.lineWidth = 1.6; c.lineCap = 'round'; c.beginPath(); if (Math.abs(this.q) > 0.5) c.arc(h.x - 13, h.y + 10, 3, 0, TAU); else c.arc(h.x - 12, h.y + 6, 6, 0.4, 1.9); c.stroke();
+    const ex = lerp(sh.x, hp.x, 0.5) + 6 * (1 - this.arm), ey = lerp(sh.y, hp.y, 0.5) + 16 - 4 * this.arm;
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = C.sleeve; c.lineWidth = 14; c.beginPath(); c.moveTo(sh.x, sh.y); c.lineTo(ex, ey); c.stroke();
+    c.strokeStyle = C.skin; c.lineWidth = 11; c.beginPath(); c.moveTo(ex, ey); c.lineTo(hp.x, hp.y); c.stroke(); c.fillStyle = C.skin; disc(c, hp.x, hp.y, 8); c.fill();
+  }
+  drawCharges(c) {
+    const fx = this.fx, fy = this.fy, h = this.head(), hp = this.handPos();
+    const pts = [[h.x + 4, h.y - 6], [fx - 2, fy - 240], [fx - 2, fy - 200], [fx - 2, fy - 165], [fx - 8, fy - 110], [fx + 9, fy - 60], [lerp(fx - 12, hp.x, 0.55), lerp(fy - 250, hp.y, 0.55) + 6], [hp.x, hp.y], [fx - 8, fy - 30], [fx + 9, fy - 125], [h.x - 6, h.y + 12]];
+    const n = Math.round(Math.abs(this.q) * pts.length); for (let i = 0; i < n; i++) sDot(c, pts[i][0], pts[i][1], sgn(this.q), 5);
+    this.hair.drawCharges(c); tag(c, fx + 62, fy - 200, this.q, 'body');
+  }
+}
+
+/* Cup of puffed rice on top of the dome */
+class RiceCup extends Prop {
+  constructor(w) { super(w); const v = w.vdg; this.flown = 0; this.p = []; for (let i = 0; i < 70; i++) this.p.push({ st: 0, x: v.x + rnd(-19, 19), y: v.y - v.R - rnd(5, 31), th: rnd(0.22, 0.9), vx: 0, vy: 0, a: rnd(TAU), s: rnd(3, 4.6) }); }
+  update(dt) {
+    const v = this.w.vdg; let n = 0;
+    for (const p of this.p) {
+      if (p.st === 0) { if (Math.abs(v.Q) > p.th && Math.random() < dt * 6) { const a = -Math.PI / 2 + rnd(-0.8, 0.8), sp = rnd(260, 520) * (0.5 + 0.5 * Math.abs(v.Q)); p.st = 1; p.vx = Math.cos(a) * sp; p.vy = Math.sin(a) * sp; p.q = sgn(v.Q); v.Q *= 0.996; } continue; }
+      n++; if (p.st !== 1) continue;
+      const dx = p.x - v.x, dy = p.y - v.y, d = hyp(dx, dy) || 1, e = 2400 * v.Q * v.Q / (d / v.R) ** 2;
+      p.vx = (p.vx + dx / d * e * dt) * (1 - 0.6 * dt); p.vy += (dy / d * e + 700) * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.a += dt * 7;
+      if (d < v.R + 2 && p.vy > 0) { p.x = v.x + dx / d * (v.R + 2); p.y = v.y + dy / d * (v.R + 2); p.vy *= -0.3; p.vx += sgn(dx || 1) * 60; }
+      if (p.y > BENCH - 3) { p.y = BENCH - 3; p.st = 2; } if (p.x < -20 || p.x > W + 20) p.st = 2;
+    }
+    this.flown = n;
+  }
+  draw(c) {
+    const v = this.w.vdg, y = v.y - v.R + 2;
+    for (const p of this.p) { if (p.st === 0 && p.y > y - 24) continue; c.save(); c.translate(p.x, p.y); c.rotate(p.a); c.fillStyle = '#f3e7c4'; c.beginPath(); c.ellipse(0, 0, p.s, p.s * 0.55, 0, 0, TAU); c.fill(); c.restore(); }
+    c.fillStyle = 'rgba(214,224,234,.92)'; c.beginPath(); c.moveTo(v.x - 27, y - 26); c.lineTo(v.x + 27, y - 26); c.lineTo(v.x + 20, y); c.lineTo(v.x - 20, y); c.closePath(); c.fill(); c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1; c.stroke();
+  }
+  drawCharges(c) { let k = 0; for (const p of this.p) if (p.st === 1 && k++ % 4 === 0) sDot(c, p.x, p.y, p.q, 3.6); }
+}
+
+/* Demo 4.2: a balloon you hold in your hand, a thin stream of water, and a wall */
+function dipole(c, x, y, ang) { c.save(); c.translate(x, y); c.rotate(ang); c.fillStyle = 'rgba(235,242,250,.3)'; c.beginPath(); c.ellipse(0, 0, 9.5, 5, 0, 0, TAU); c.fill(); c.fillStyle = C.pos; disc(c, 5, 0, 2.7); c.fill(); c.fillStyle = C.neg; disc(c, -5, 0, 2.7); c.fill(); c.restore(); }
+class HandBalloon extends Prop {
+  constructor(w, o = {}) { super(w); Object.assign(this, { x: 520, y: 250, r: 34, q: 0, material: 'Rubber', canRub: true, stuck: false, falling: false, vy: 0, color: '#e5564b' }, o); this.held = false; this.rub = 0; this.q0 = 0; this.rubMat = null; this.rubT = 0; this.th = 0; }
+  get bx() { return this.x; } get by() { return this.y; }
+  rubWith(mat, d) { if (this.rubMat !== mat) { this.rubMat = mat; this.rub = 0; this.q0 = this.q; } this.rub += d; this.q = lerp(this.q0, rubCharge(this.material, mat), clamp(this.rub / 420, 0, 1)); this.rubT = 0.7; }
+  update(dt) { this.rubT = Math.max(0, this.rubT - dt); if (this.falling) { this.vy += 900 * dt; this.y += this.vy * dt; if (this.y > BENCH - this.r) { this.y = BENCH - this.r; this.falling = false; this.vy = 0; } } }
+  pick(x, y) {
+    if (hyp(x - this.x, y - this.y) > this.r + 6) return null; const wall = this.w.wallX || W;
+    return grab(this, x, y, { fix: (nx, ny) => { this.stuck = false; this.falling = false; return [clamp(nx, this.r + 4, wall - this.r), clamp(ny, this.r + 12, BENCH - this.r)]; }, end: () => { if (this.w.wallX && this.x >= wall - this.r - 3) { if (Math.abs(this.q) > 0.45) { this.stuck = true; this.w.flags.stuck = true; } else { this.falling = true; toast('The uncharged balloon slides off the wall. Rub it on the hair first.'); } } } });
+  }
+  draw(c) {
+    const r = this.r; c.fillStyle = this.color; c.beginPath(); c.ellipse(this.x, this.y, r * 0.9, r * 1.05, 0, 0, TAU); c.fill(); c.beginPath(); c.moveTo(this.x - 5, this.y + r * 1.02); c.lineTo(this.x + 5, this.y + r * 1.02); c.lineTo(this.x, this.y + r * 1.02 + 8); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.4)'; c.beginPath(); c.ellipse(this.x - r * 0.3, this.y - r * 0.42, r * 0.2, r * 0.32, 0.5, 0, TAU); c.fill();
+    if (!this.stuck && !this.falling) grip(c, this.x, this.y + r + 18, Math.PI / 2, 0.9);
+    if (this.rubT > 0 && this.rub < 420) { c.strokeStyle = C.amber; c.lineWidth = 3; c.lineCap = 'round'; c.beginPath(); c.arc(this.x, this.y, r + 8, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(this.rub / 420, 0, 1)); c.stroke(); }
+  }
+  drawCharges(c) { const n = Math.round(Math.abs(this.q) * 8); for (let i = 0; i < n; i++) { const a = i / 8 * TAU; sDot(c, this.x + Math.cos(a) * this.r * 0.62, this.y + Math.sin(a) * this.r * 0.76, sgn(this.q), 5); } tag(c, this.x, this.y - this.r - 16, this.q); }
+}
+class Faucet extends Prop {
+  constructor(w, o = {}) { super(w); this.x = o.x ?? 330; this.y = 160; this.path = []; this.def = 0; this.bentT = 0; }
+  update(dt) {
+    const b = this.w.props.find(p => p instanceof HandBalloon); let x = this.x, y = this.y, vx = 0, vy = 150; const h = 0.012, pts = [[x, y]];
+    for (let i = 0; i < 160 && y < BENCH - 24; i++) {
+      let ax = 0, ay = 1500;
+      if (b && b.q) { const dx = b.x - x, dy = b.y - y, d = Math.max(hyp(dx, dy), b.r + 10), f = 3000 * b.q * b.q / (d / 50) ** 3; ax += dx / d * f; ay += dy / d * f * 0.4; }
+      vx += ax * h; vy += ay * h; x += vx * h; y += vy * h;
+      if (b) { const dx = x - b.x, dy = y - b.y, d = hyp(dx, dy) || 1; if (d < b.r + 5) { x = b.x + dx / d * (b.r + 5); y = b.y + dy / d * (b.r + 5); vx *= 0.5; } }
+      pts.push([x, y]);
+    }
+    this.path = pts; this.def = x - this.x; if (Math.abs(this.def) > 24) this.bentT += dt;
+  }
+  draw(c) {
+    const x = this.x, y = this.y;
+    c.strokeStyle = '#98a3b1'; c.lineWidth = 13; c.lineCap = 'butt'; c.lineJoin = 'round'; c.beginPath(); c.moveTo(0, y - 60); c.lineTo(x - 26, y - 60); c.quadraticCurveTo(x, y - 60, x, y - 30); c.lineTo(x, y); c.stroke();
+    c.fillStyle = '#6d7885'; rr(c, x - 9, y - 6, 18, 8, 2); c.fill(); c.fillStyle = '#d2473d'; rr(c, x - 70, y - 82, 26, 12, 4); c.fill();
+    c.fillStyle = '#39434f'; rr(c, x - 130, BENCH - 30, 320, 30, [4, 4, 0, 0]); c.fill(); c.fillStyle = 'rgba(120,185,235,.45)'; c.fillRect(x - 124, BENCH - 22, 308, 20);
+    c.lineCap = 'round'; c.strokeStyle = 'rgba(140,200,245,.85)'; c.lineWidth = 4.5; poly(c, this.path); c.stroke();
+    c.strokeStyle = 'rgba(235,248,255,.9)'; c.lineWidth = 1.4; c.setLineDash([9, 13]); c.lineDashOffset = -this.w.t * 260; poly(c, this.path); c.stroke(); c.setLineDash([]);
+    label(c, 'thin stream of water', x - 16, y + 60, { align: 'right', font: FONT(13), col: '#c5cfdb' });
+  }
+  drawCharges(c) {
+    const b = this.w.props.find(p => p instanceof HandBalloon); if (!b || Math.abs(b.q) < 0.2) return;
+    for (let i = 6; i < this.path.length; i += 9) { const [x, y] = this.path[i], d = hyp(b.x - x, b.y - y); if (d < 150) dipole(c, x, y, Math.atan2(b.y - y, b.x - x) + (b.q < 0 ? 0 : Math.PI)); }
+    const wx = this.w.wallX; if (wx && wx - b.x < 150) for (let k = -2; k <= 2; k++) { const y = b.y + k * 22; dipole(c, wx + 16, y, Math.atan2(b.y - y, b.x - wx - 16) + (b.q < 0 ? 0 : Math.PI)); }
+  }
+}
+
+/* Demo 5.3: foam plate + pie tin with a foam-cup handle + neon bulb */
+class Electrophorus extends Prop {
+  constructor(w) {
+    super(w); this.TW = 150;
+    this.plate = { x: 215, y: BENCH - 18, wd: 230, ht: 18, q: 0, rub: 0 };
+    this.cloth = { x: 505, y: BENCH - 14, held: false, lx: 0, ly: 0 };
+    this.tin = { x: 645, y: BENCH, q: 0, held: false };
+    this.bulb = { x: 790, y: 330, glow: 0 }; this.poke = 0; this.count = 0; this.snaps = 0; this.onPlateSnaps = 0;
+  }
+  get pc() { return this.plate.x + this.plate.wd / 2; }
+  get onPlate() { return Math.abs(this.tin.x - this.pc) < 56 && this.tin.y >= this.plate.y - 1.5; }
+  coupling() { const t = this.tin; return clamp(1 - Math.abs(t.x - this.pc) / 150, 0, 1) * clamp(1 - (this.plate.y - t.y) / 70, 0, 1); }
+  free() { return this.tin.q + this.plate.q * this.coupling(); }
+  touch() { if (this.poke <= 0) this.poke = 0.6; }
+  update(dt) {
+    const w = this.w, t = this.tin, b = this.bulb, p = this.plate, cl = this.cloth; b.glow = Math.max(0, b.glow - dt * 2.4);
+    if (cl.held) { const on = cl.x > p.x - 20 && cl.x < p.x + p.wd + 20 && cl.y > p.y - 26; if (on && !this.onPlate) { const d = hyp(cl.x - cl.lx, cl.y - cl.ly); if (d < 90) { p.rub += d; p.q = -clamp(p.rub / 600, 0, 1); } } }
+    cl.lx = cl.x; cl.ly = cl.y;
+    if (this.poke > 0) {
+      const before = this.poke; this.poke -= dt;
+      if (before > 0.36 && this.poke <= 0.36) { const f = this.free(), px = t.x + 52, py = t.y - 15; if (Math.abs(f) > 0.08) { const up = [[px, py], [px + 34, py - 44], [px + 70, py - 90]]; w.spark(px + 3, py - 9, px, py, 0.5); w.flow(f < 0 ? up : up.reverse(), 0.8, 4); t.q -= f; this.snaps++; if (this.onPlate) this.onPlateSnaps++; } }
+    }
+    const rx = t.x + this.TW / 2, ry = t.y - 9, f = this.free(), tipX = b.x - 20;
+    if (!this.onPlate && hyp(rx - tipX, ry - b.y) < 20 && Math.abs(f) > 0.12) { w.spark(rx, ry, tipX, b.y, 0.6); const p2 = [[rx - 10, ry], [tipX, b.y], [b.x, b.y], [b.x, BENCH]]; w.flow(f < 0 ? p2 : p2.reverse(), 0.8, 4); t.q -= f; b.glow = 1; this.count++; }
+  }
+  pick(x, y, test) {
+    const t = this.tin, cl = this.cloth, p = this.plate, self = this;
+    if (Math.abs(x - t.x) < 24 && y < t.y - 10 && y > t.y - 66) {
+      return grab(t, x, y, { fix: (nx, ny) => { nx = clamp(nx, 262, 748); const over = Math.abs(nx - self.pc) < p.wd / 2 + self.TW / 2 - 6; return [nx, clamp(ny, 300, over ? p.y : BENCH)]; }, end: () => { if (Math.abs(t.x - self.pc) < 56 && t.y > p.y - 26) { t.x = self.pc; t.y = p.y; } else if (t.y > BENCH - 30 && Math.abs(t.x - self.pc) >= p.wd / 2 + self.TW / 2 - 6) t.y = BENCH; } });
+    }
+    if (Math.abs(x - t.x) < this.TW / 2 && y <= t.y && y > t.y - 18) { if (!test) toast('Use the foam-cup handle. Your hand on the metal would ground the tin.'); return null; }
+    if (Math.abs(x - cl.x) < 44 && Math.abs(y - cl.y) < 20) return grab(cl, x, y, { fix: (nx, ny) => { const over = nx > p.x - 30 && nx < p.x + p.wd + 30; return [clamp(nx, 226, 784), clamp(ny, 250, (over ? p.y : BENCH) - 12)]; } });
+    return null;
+  }
+  draw(c) {
+    const p = this.plate, t = this.tin, cl = this.cloth, b = this.bulb;
+    c.fillStyle = '#f3f4f0'; rr(c, p.x, p.y, p.wd, p.ht, 5); c.fill(); c.strokeStyle = '#c9ccc4'; c.lineWidth = 1; c.stroke();
+    label(c, 'foam plate', p.x + p.wd / 2, p.y + 34, { font: FONT(13), col: '#c5cfdb' });
+    /* neon bulb on a stand */
+    c.fillStyle = '#46515f'; c.fillRect(b.x - 3, b.y + 6, 6, BENCH - b.y - 6); rr(c, b.x - 24, BENCH - 7, 48, 7, 3); c.fill();
+    c.strokeStyle = '#d8dee6'; c.lineWidth = 2; c.beginPath(); c.moveTo(b.x - 8, b.y); c.lineTo(b.x - 20, b.y); c.stroke();
+    c.fillStyle = b.glow > 0.02 ? `rgba(255,${150 + 60 * b.glow | 0},90,${0.35 + 0.65 * b.glow})` : 'rgba(210,225,240,.25)'; c.beginPath(); c.ellipse(b.x, b.y, 10, 15, 0, 0, TAU); c.fill(); c.strokeStyle = 'rgba(230,240,250,.6)'; c.lineWidth = 1; c.stroke();
+    if (b.glow > 0.02) this.glow(c);
+    label(c, 'neon bulb', b.x, b.y - 28, { font: FONT(13), col: '#c5cfdb' }); label(c, 'flashes: ' + this.count, b.x, b.y - 46, { font: MONO(13), col: C.amber });
+    /* pie tin with foam-cup handle */
+    c.fillStyle = '#f2f3ef'; c.beginPath(); c.moveTo(t.x - 15, t.y - 60); c.lineTo(t.x + 15, t.y - 60); c.lineTo(t.x + 21, t.y - 12); c.lineTo(t.x - 21, t.y - 12); c.closePath(); c.fill(); c.strokeStyle = '#c4c7c0'; c.stroke();
+    const g = c.createLinearGradient(t.x - 85, 0, t.x + 85, 0); g.addColorStop(0, '#8e99a6'); g.addColorStop(0.45, '#f1f4f7'); g.addColorStop(1, '#7e8996');
+    c.fillStyle = g; c.beginPath(); c.moveTo(t.x - this.TW / 2, t.y - 16); c.lineTo(t.x + this.TW / 2, t.y - 16); c.lineTo(t.x + this.TW / 2 - 16, t.y); c.lineTo(t.x - this.TW / 2 + 16, t.y); c.closePath(); c.fill(); c.strokeStyle = 'rgba(40,50,60,.6)'; c.stroke();
+    label(c, 'cup handle', t.x + 30, t.y - 46, { align: 'left', font: FONT(12) });
+    if (this.poke > 0) { const u = this.poke > 0.36 ? (this.poke - 0.36) / 0.24 : this.poke < 0.16 ? (0.16 - this.poke) / 0.16 : 0; hand(c, t.x + 52 + u * 34, t.y - 16 - u * 44, -0.9); }
+    /* wool cloth */
+    c.fillStyle = MATCOL.Wool[0]; rr(c, cl.x - 40, cl.y - 12, 80, 24, 8); c.fill(); c.strokeStyle = MATCOL.Wool[1]; c.lineWidth = 1.4; c.beginPath(); for (let i = -32; i <= 32; i += 7) { c.moveTo(cl.x + i, cl.y - 8); c.lineTo(cl.x + i + 2, cl.y + 8); } c.stroke();
+    label(c, 'wool', cl.x, cl.y - 24, { font: FONT(13), col: '#c5cfdb' });
+  }
+  glow(c) { const b = this.bulb; if (b.glow < 0.02) return; c.save(); c.globalCompositeOperation = 'lighter'; const g = c.createRadialGradient(b.x, b.y, 2, b.x, b.y, 70); g.addColorStop(0, `rgba(255,170,90,${0.8 * b.glow})`); g.addColorStop(1, 'rgba(255,120,60,0)'); c.fillStyle = g; disc(c, b.x, b.y, 70); c.fill(); c.restore(); }
+  drawCharges(c) {
+    const p = this.plate, t = this.tin, bound = -p.q * this.coupling(), f = this.free(), nP = Math.round(Math.abs(p.q) * 9), nB = Math.round(bound * 6), nF = Math.round(clamp(Math.abs(f), 0, 1) * 6);
+    for (let i = 0; i < nP; i++) eDot(c, p.x + 18 + i * ((p.wd - 36) / 8), p.y + 9, 5);
+    for (let i = 0; i < nB; i++) pDot(c, t.x - 55 + i * 22, t.y - 5, 4.6);
+    for (let i = 0; i < nF; i++) sDot(c, t.x - 70 + i * 28 + (i > 2 ? 0 : 0), t.y - 24, sgn(f), 4.6);
+    tag(c, p.x + 40, p.y - 14, p.q, 'plate'); tag(c, t.x, t.y - 78, t.q, 'tin');
+  }
+}
+/* ================================================================== *
+ *  The 21 demonstrations
+ *  predict: questions answered before the bench unlocks
+ *  steps:   the procedure; each step ticks itself off when `ok` becomes true, or when its `ask` is answered
+ * ================================================================== */
+const PARTS = ['Do this first', 'Charged vs. uncharged objects', 'Charge interactions', 'Conductors & insulators', 'Polarization', 'Charging by induction', 'Charging by friction', 'Charging by conduction', 'Grounding'];
+const ran = (w, d) => { if (w.vdg.on && Math.abs(w.vdg.Q) > 0.9) d.ran = true; };
+const chargedOff = (w, d) => d.ran && !w.vdg.on && Math.abs(w.vdg.Q) > 0.6;
+const lostCharge = w => !w.vdg.on && Math.abs(w.vdg.Q) < 0.5 ? 'The dome has lost its charge. Run the machine for about 10 seconds, then switch it off again.' : '';
+const mark = ok => el('span', { style: `margin-left:6px;font-weight:700;color:var(${ok ? '--ok' : '--pos'})` }, ok ? '✓' : '✗');
+const OBJ = {
+  balloon: { kind: 'balloon', material: 'Rubber', name: 'balloon', r: 30 },
+  pvc: { kind: 'pvc', material: 'Vinyl (PVC)', name: 'PVC pipe', r: 16 },
+  acrylic: { kind: 'acrylic', material: 'Acrylic', name: 'acrylic rod', r: 16 },
+  foam: { kind: 'foam', material: 'Styrofoam', name: 'foam cup', r: 20 }
+};
+const CLOTHS = ['Wool', 'Cotton', 'Silk', 'Rabbit fur'];
+function ladder(box, hits = {}) {
+  box.append(el('div', { class: 'ladder-cap' }, '<span>▲ Loves electrons most: becomes −</span>'));
+  const ol = el('ol', { class: 'ladder' }); SERIES.forEach(m => { const li = el('li', {}, `<span>${m}</span>`); if (hits[m]) { li.dataset.hit = '1'; li.append(el('span', {}, hits[m])); } ol.append(li); });
+  box.append(ol, el('div', { class: 'ladder-cap' }, '<span>▼ Loves electrons least: becomes +</span>'), el('p', { class: 'lede', style: 'font-size:14px' }, 'Your class series may list a few materials in a slightly different order. Use the one shown in class.'));
+}
+function ledger(c, w, d) {
+  const v = w.vdg, nb = Math.round(d.b.q * 12), nd = Math.round(v.Q * 30), x = W - 236, y = 16;
+  const rows = [['Balloon', nb], ['Hair', -nb], ['Balloon + hair', 0, 1], ['Dome', nd], ['Ground (Earth)', -nd], ['Dome + ground', 0, 1]];
+  c.fillStyle = 'rgba(8,12,18,.82)'; rr(c, x, y, 220, 34 + rows.length * 23, 9); c.fill(); label(c, 'CHARGE COUNT', x + 12, y + 16, { align: 'left', font: FONT(12), col: '#9fadbd' });
+  rows.forEach((r, i) => {
+    const yy = y + 42 + i * 23; if (r[2]) { c.strokeStyle = 'rgba(255,255,255,.22)'; c.lineWidth = 1; c.beginPath(); c.moveTo(x + 12, yy - 12); c.lineTo(x + 208, yy - 12); c.stroke(); }
+    label(c, r[0], x + 12, yy, { align: 'left', font: FONT(15, r[2] ? 700 : 500), col: r[2] ? C.amber : '#e9eef5' });
+    label(c, (r[1] > 0 ? '+' : r[1] < 0 ? '−' : '') + Math.abs(r[1]), x + 208, yy, { align: 'right', font: MONO(14), col: r[1] < 0 ? C.neg : r[1] > 0 ? C.pos : r[2] ? C.amber : '#e9eef5' });
+  });
+}
+
+const DEMOS = [
+/* ------------------------------ Demo 0 ------------------------------ */
+{ id: '0', part: 0, title: 'Polarity Check', core: true, slides: '6, 10, 12', mystery: true,
+  intro: 'This machine is a mystery. Its dome might charge negative or positive, depending on what its belt and rollers are made of. Use a balloon you know is negative to find out.',
+  predict: [
+    { q: 'A rubber balloon rubbed on hair is negative. If the dome is also negative, what will the balloon do when it hangs near the dome?', a: ['Swing away from the dome', 'Swing toward the dome', 'Hang straight down'], ok: 0 },
+    { q: 'Suppose the balloon swings toward the dome instead. Is that proof the dome is positive?', a: ['Not on its own. A charged dome also attracts a neutral balloon, so the balloon has to be well charged', 'Yes. Attraction always means opposite charges', 'No. It means the dome is neutral'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.pad = w.add(new RubPad(w)); d.b = w.add(new Hanger(w, { px: 650, py: 150, showGap: true })); },
+  tick(w, d, dt) { ran(w, d); const b = d.b, v = w.vdg; if (!b.held && !v.on && b.gap < 240 && Math.abs(v.Q) > 0.5 && b.q < -0.8) d.near = (d.near || 0) + dt; },
+  steps: [
+    { t: 'Drag the balloon itself back and forth across the hair until the ring around it closes.', ok: (w, d) => d.b.q <= -0.97, note: 'The rubber balloon took electrons from the hair, so the balloon is negative.' },
+    { t: 'Switch the machine on for about 10 seconds, then switch it off.', ok: (w, d) => d.ran && !w.vdg.on },
+    { t: 'Hang the balloon about 30 cm from the dome, let go, and watch which way it swings.', ok: (w, d) => d.near > 1.6, hint: lostCharge },
+    { t: 'Write the result on the sticky note for this machine.', ask: { q: 'DOME =', a: ['[ − ]  negative', '[ + ]  positive'], fixed: true, ok: P => P.s < 0 ? 0 : 1, no: 'Look again. A negative balloon is pushed away by a negative dome and pulled toward a positive one.' } }
+  ],
+  see: 'The balloon swings clearly toward or away from the dome.',
+  why: P => `<p>Two like charges repel (slide 10). A rubbed rubber balloon is reliably negative, so ${P.s < 0 ? 'when it was pushed away, the dome had to be negative too' : 'a negative dome would have pushed it away. It was pulled in instead, so this dome is positive'}.</p><p>Attraction alone is weaker evidence, because a charged dome also attracts a <em>neutral</em> balloon (slide 12). That is why you test with a freshly rubbed, well-charged balloon. Repulsion is the firm test.</p><p>Polarity depends on the belt and roller materials, so two machines in the same building can differ. Set the <b>Dome charges</b> switch at the top of this page to match your class machine.</p>`,
+  say: P => `This dome is ${P.name}. Likes repel, so repulsion is the test I trust.` },
+
+/* ------------------------------ Part 1 ------------------------------ */
+{ id: '1.1', part: 1, title: 'Meet the Electron Pump', core: true, slides: '3, 6–7',
+  intro: 'A Van de Graaff generator is a motor, a rubber belt and a hollow metal dome. A plate of tissue-paper bits will show whether the dome is charged.',
+  predict: [
+    { q: 'When the dome gets charged, which particle is being moved onto it or off it?', a: ['Electrons', 'Protons', 'Neutrons', 'Both protons and electrons'], ok: 0 },
+    { q: 'Could the machine be moving protons instead?', a: ['No. Protons are tightly bound in the nucleus and aren’t going anywhere', 'Yes. Protons ride the belt up to the dome', 'Yes, but only when the dome ends up positive'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.bits = w.add(new PaperBits(w)); },
+  tick(w, d, dt) { ran(w, d); const v = w.vdg; if (!v.on && v.wasGrounded) d.g = true; if (d.g && d.bits.gap < 95 && Math.abs(v.Q) < 0.03) d.calm = (d.calm || 0) + dt; },
+  steps: [
+    { t: 'With the machine off, touch the dome with the discharge wand so it starts neutral.', ok: (w, d) => d.g },
+    { t: 'Hold the plate of paper bits close to the dome, within about 15 cm.', ok: (w, d) => d.calm > 1, note: 'Nothing happens. A neutral dome does not pull on the paper.' },
+    { t: 'Move the plate away. Run the machine for about 10 seconds, then switch it off.', ok: (w, d) => d.ran && !w.vdg.on },
+    { t: 'Hold the plate near the dome again.', ok: (w, d) => d.bits.jumped >= 6, note: 'The bits jump up toward the dome.', hint: lostCharge },
+    { t: 'Record it in your migrant-electron table.', ask: { q: P => `The dome is now ${P.name}. Did it gain or lose electrons?`, a: ['It gained electrons', 'It lost electrons', 'It gained protons', 'It lost protons'], ok: P => P.s < 0 ? 0 : 1, no: 'Only electrons move. A negative object has extra electrons; a positive object is missing some.' } }
+  ],
+  see: 'Before the machine runs, the paper bits ignore the dome. After 10 seconds of running, the same dome pulls the paper bits up toward it.',
+  why: P => `<p>The dome started with a balance of protons and electrons (slide 5). The belt carried electrons ${P.s < 0 ? 'onto the dome, so it now has more electrons than protons' : 'away from the dome, so it now has fewer electrons than protons'}. That imbalance is what “charged” means (slides 6–7).</p><p>Protons are tightly bound in the nucleus and never ride the belt (slide 3).</p><p>The paper bits are neutral. A charged object attracts a neutral object, which is why bits of paper are the classic lab test for charge (slide 11).</p><p>Turn on <b>Show charges</b> and run the machine again to watch the electrons on the belt.</p>`,
+  say: () => 'The machine doesn’t make charge. It just moves electrons from one place to another.' },
+
+/* ------------------------------ Part 2 ------------------------------ */
+{ id: '2.1', part: 2, title: 'Flying Pie Tins', core: true, slides: '10, 12',
+  intro: 'A stack of small aluminum pie tins will sit upside down on top of the dome.',
+  predict: [
+    { q: 'What will happen to a stack of metal pie tins sitting on the charged dome?', a: ['They fly off the dome', 'They cling tightly to the dome', 'Nothing. Metal is not affected'], ok: 0 },
+    { q: 'If they move, will they all go at once or one at a time?', a: ['One at a time, starting from the top', 'All at once', 'One at a time, starting from the bottom'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.tins = w.add(new TinStack(w)); },
+  tick(w, d) { const v = w.vdg; if (!v.on && v.wasGrounded) { d.g = true; if (d.tins.flown >= 4) d.g2 = true; } },
+  steps: [
+    { t: 'With the machine off, touch the dome with the discharge wand so it is grounded.', ok: (w, d) => d.g },
+    { t: 'Drag the stack of tins onto the top of the dome.', ok: (w, d) => d.tins.onDome },
+    { t: 'Keep clear of the space above the dome. Switch the machine on and watch.', ok: (w, d) => d.tins.flown >= 4, note: 'The tins lift off one at a time from the top of the stack and sail away.' },
+    { t: 'Switch off and ground the dome before collecting the tins.', ok: (w, d) => d.g2 }
+  ],
+  see: 'The tins lift off one at a time from the top of the stack and sail away.',
+  why: () => '<p>The tins are conductors touching the dome, so they pick up the same type of charge as the dome. Like charges repel (slide 10).</p><p>The top tin is pushed hardest and has nothing above holding it down, so it leaves first. Each tin that leaves carries some charge away, and the belt has to build it back up before the next one goes.</p><p>Because only charged objects repel, this is firm evidence of charge (slide 12).</p>',
+  say: () => 'Same charge on the dome and the tin. Likes repel, so the tin gets pushed away.',
+  safety: 'Tins fly up and out. Keep faces and the class back at least 2 m and do not lean over the dome.' },
+
+{ id: '2.2', part: 2, title: 'Tissue-Paper Hair', core: true, slides: '9–10',
+  intro: 'A bundle of tissue-paper streamers is taped to the top of the dome so they hang down flat. This is the class-friendly version of hair-raising: same physics, no volunteer.',
+  predict: [
+    { q: 'What will the streamers do when the dome is charged?', a: ['Stand out, away from the dome', 'Cling more tightly to the dome', 'Keep hanging the way they are'], ok: 0 },
+    { q: 'Will the streamers be pulled toward each other or pushed apart?', a: ['Pushed apart', 'Pulled toward each other', 'Neither'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'charges'],
+  setup(w, d) { d.wand = w.add(new Wand(w, { x: 90, y: 420, showGap: true })); w.add(streamers(w)); },
+  tick(w, d, dt) { const v = w.vdg, g = hyp(d.wand.x - v.x, d.wand.y - v.y) - v.R - d.wand.r; if (Math.abs(v.Q) > 0.9) d.up = true; if (Math.abs(v.Q) > 0.55 && g > 20 && g < 175 && !d.wand.auto) d.reach = (d.reach || 0) + dt; },
+  steps: [
+    { t: 'Switch the machine on and watch the streamers.', ok: (w, d) => d.up, note: 'They stand straight out and spread away from each other and from the dome.' },
+    { t: 'Drag the grounded wand slowly toward the streamers. Do not touch the dome, and stop before a spark jumps.', ok: (w, d) => d.reach > 1.4, note: 'The nearest streamers reach toward the wand.' }
+  ],
+  see: 'The streamers stand straight out and spread away from each other and from the dome. When a grounded object comes near, they reach toward it.',
+  why: () => '<p>Each streamer has the same charge as the dome, so the streamers repel each other and the dome (slide 10).</p><p>They push and pull without touching. This is action-at-a-distance: the electric force is a non-contact force (slide 9).</p><p>They reach toward the grounded wand because charged objects attract neutral objects.</p>' },
+
+{ id: '2.3', part: 2, title: 'Mystery Balloons', slides: '12–14',
+  intro: 'Three balloons, A, B and C, were prepared before class. Some were rubbed on hair and some were left alone, and nobody is telling you which.',
+  predict: [
+    { q: 'If balloon A is attracted to the dome, what do you know for sure?', a: ['Only that A is oppositely charged OR neutral. You can’t tell which', 'A has the opposite charge to the dome', 'A is neutral', 'A has the same charge as the dome'], ok: 0 },
+    { q: 'What if a balloon is repelled?', a: ['It has the same type of charge as the dome', 'It has the opposite type of charge', 'It is neutral'], ok: 0 }
+  ],
+  tools: ['power', 'wand'],
+  setup(w, d) {
+    w.add(new Wand(w)); const prep = [0, -1, Math.random() < 0.5 ? 0 : -1].sort(() => Math.random() - 0.5);
+    d.prep = prep; d.seen = [null, null, null]; d.t = [0, 0, 0]; d.pick = [0, 0, 0];
+    d.bal = ['A', 'B', 'C'].map((L, i) => w.add(new Hanger(w, { px: 590 + i * 150, py: 110, label: L, q: prep[i], hide: true, canRub: false, color: ['#e5564b', '#3fa7d6', '#d9a520'][i] })));
+  },
+  tick(w, d, dt) {
+    ran(w, d); const v = w.vdg;
+    d.bal.forEach((b, i) => { if (!b.held && !v.on && b.gap < 200 && Math.abs(v.Q) > 0.5) { d.t[i] += dt; if (d.t[i] > 1.2 && b.seen && d.seen[i] !== b.seen) { d.seen[i] = b.seen; d.dirty = true; } } else if (b.gap > 230) d.t[i] = 0; });
+  },
+  steps: [
+    { t: 'Charge the dome for about 10 seconds, then switch the machine off.', ok: chargedOff },
+    { t: 'Hold balloon <b>A</b> near the dome without touching it, let go, and watch.', ok: (w, d) => d.seen[0], hint: lostCharge },
+    { t: 'Do the same with balloon <b>B</b>.', ok: (w, d) => d.seen[1], hint: lostCharge },
+    { t: 'And with balloon <b>C</b>.', ok: (w, d) => d.seen[2], hint: lostCharge },
+    { t: 'In the table below, record what each result lets you conclude.', ok: (w, d) => d.allRight }
+  ],
+  extra(box, w, d) {
+    const opts = ['Choose…', 'Same type of charge as the dome', 'Opposite charge OR neutral (can’t tell which)', 'Opposite charge, for sure', 'Neutral, for sure'], want = i => d.seen[i] === 'repel' ? 1 : 2;
+    const t = el('table', { class: 'log' }, '<thead><tr><th>Balloon</th><th>Near the dome</th><th>So it has…</th></tr></thead>'), tb = el('tbody');
+    d.bal.forEach((b, i) => {
+      const tr = el('tr'), td = el('td'), sel = el('select', { id: 'concl' + i, 'aria-label': 'Conclusion for balloon ' + b.label });
+      opts.forEach((o, k) => sel.append(new Option(o, k))); sel.value = d.pick[i]; sel.disabled = !d.seen[i]; sel.onchange = () => { d.pick[i] = +sel.value; d.dirty = true; };
+      td.append(sel); if (d.pick[i]) td.append(mark(d.pick[i] === want(i)));
+      tr.append(el('td', {}, `<b>${b.label}</b>`), el('td', {}, d.seen[i] ? (d.seen[i] === 'repel' ? 'pushed away' : 'pulled in') : '<span style="opacity:.6">not tested</span>'), td); tb.append(tr);
+    });
+    t.append(tb); box.append(t); d.allRight = d.bal.every((b, i) => d.seen[i] && d.pick[i] === want(i));
+    if (d.pick.some((p, i) => p && p !== want(i))) box.append(el('p', { class: 'hint' }, 'Check the three rules: opposites attract, likes repel, and a charged object also attracts a neutral one.'));
+  },
+  see: 'Some balloons swing toward the dome and some swing away.',
+  why: (P, d) => {
+    d.bal.forEach(b => { b.hide = false; });
+    const how = d.prep.map((q, i) => `<b>${'ABC'[i]}</b> ${q ? 'was rubbed on hair, so it was negative' : 'was left neutral'}`).join('; ');
+    return `<p>How they were prepared: ${how}.</p><p>A repelling balloon must carry the same charge as the dome. An attracting balloon is either oppositely charged or neutral, and you can’t tell which from attraction alone (slide 12). This is the same reasoning you use in the Balloon Puzzles (slides 13–14).</p>${P.s > 0 ? '<p>With a positive dome every balloon was pulled in, so attraction alone could not separate the rubbed balloon from the neutral ones. Switch <b>Dome charges</b> to − and try again to see a rubbed balloon repelled.</p>' : ''}`;
+  },
+  say: () => 'Attraction tells you something is charged. Repulsion tells you both are charged, and with the same type.' },
+
+/* ------------------------------ Part 3 ------------------------------ */
+{ id: '3.1', part: 3, title: 'Metal vs. Plastic Discharge', core: true, slides: '16–17, 21',
+  intro: 'The streamers show whether the dome is still charged. You have a PVC pipe and a metal rod, each held in your hand by one end.',
+  predict: [
+    { q: 'If you touch the charged dome with the plastic pipe, will the streamers drop?', a: ['No. They stay standing', 'Yes. They drop at once', 'They slowly sink over a few seconds'], ok: 0 },
+    { q: 'What if you use the metal rod?', a: ['The streamers drop at once', 'The streamers stay standing', 'The streamers stand out even more'], ok: 0 }
+  ],
+  tools: ['power', 'charges'],
+  setup(w, d) { w.add(new Wand(w, { x: 120, y: 380 })); w.add(streamers(w)); d.ins = w.add(new Rod(w, { x: 640, y: 300, style: 'pvc' })); d.con = w.add(new Rod(w, { x: 660, y: 420, style: 'metal', cond: true, len: 190 })); },
+  tick(w, d, dt) { ran(w, d); const v = w.vdg; if (d.ins.touching && !v.on && Math.abs(v.Q) > 0.6) d.it = (d.it || 0) + dt; if (d.it > 0.6 && !v.on && v.wasGrounded) d.gone = true; },
+  steps: [
+    { t: 'Switch the machine on until the streamers stand out, then switch it off.', ok: chargedOff },
+    { t: 'Touch the free end of the PVC pipe to the dome and hold it there. Watch the streamers.', ok: (w, d) => d.it > 0.6, note: 'The streamers stay standing.', hint: lostCharge },
+    { t: 'Now touch the dome with the metal rod (or the discharge wand).', ok: (w, d) => d.gone, note: 'A snap, and the streamers fall limp at once.' }
+  ],
+  see: 'With plastic, the streamers stay standing. With metal, there is a snap or small spark and the streamers fall limp at once.',
+  why: P => `<p>Plastic is an insulator: electrons can’t flow through it, so the charge stays on the dome (slides 17, 21).</p><p>Metal is a conductor: electrons flow between the dome and the ground through the rod and your body, and the dome becomes neutral (slides 16, 21). Here the electrons flowed ${P.s < 0 ? 'out of the negative dome' : 'into the positive dome'}.</p><p>Removing the charge from a charged object like this is called grounding (Part 8).</p>` },
+
+{ id: '3.2', part: 3, title: 'The Human Conductor', slides: '16, 20–21', world: { floor: 'floor' },
+  intro: 'A volunteer with clean, dry, fine hair stands on a plastic step stool beside a large generator and puts one flat hand on the dome.',
+  predict: [
+    { q: 'The volunteer touches only the dome, with one hand. Will their hair get charged too?', a: ['Yes. The body is a conductor, so the charge spreads over all of it, including every hair', 'No. Only the hand that is touching gets charged', 'No. Skin is an insulator'], ok: 0 },
+    { q: 'What would happen if they stood on the floor instead of the stool?', a: ['The hair barely moves, because the charge flows through them into the ground', 'The hair rises even higher', 'Exactly the same thing'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'hand', 'stool', 'charges'],
+  setup(w, d) { w.add(new Wand(w, { x: 140, y: 300 })); d.vol = w.add(new Volunteer(w)); },
+  tick(w, d, dt) {
+    const v = w.vdg, p = d.vol; if (p.stool && p.handOn && !v.on && Math.abs(v.Q) < 0.05) d.safe = true;
+    if (p.stool && p.handOn && Math.abs(p.q) > 0.75) d.up = true; if (d.up && p.handOn && !v.on && v.wasGrounded) d.gr = true; if (d.gr && !p.handOn) d.off = true;
+    if (!p.stool && p.handOn && v.on) d.fl = (d.fl || 0) + dt;
+  },
+  steps: [
+    { t: 'The volunteer is on the insulating stool and the machine is off. Press <b>Hand on dome</b>.', ok: (w, d) => d.safe },
+    { t: 'Switch the machine on and wait.', ok: (w, d) => d.up, note: 'The hair rises and spreads out, strand by strand.' },
+    { t: 'Switch the machine off. Touch the dome with the discharge wand while the hand is still on it.', ok: (w, d) => d.gr },
+    { t: 'Only now, take the hand off the dome.', ok: (w, d) => d.off },
+    { t: 'Change to <b>Standing on: floor</b>, put the hand back on and run the machine again.', ok: (w, d) => d.fl > 3, opt: true, note: 'The hair barely moves.' }
+  ],
+  see: 'The volunteer’s hair rises and spreads out strand by strand. Standing on the floor, almost nothing happens.',
+  why: () => '<p>The human body is a conductor (slide 20), so the excess charge spreads from the dome across the whole body, including every hair (slide 16).</p><p>Each hair has the same type of charge, so the hairs repel each other and the head.</p><p>On the floor, the charge flows away into the ground instead, just like touching a charged conductor (slide 21). The stool is an insulator, which is what keeps the charge on the volunteer.</p>',
+  safety: 'Volunteer: hand on before switching on, and the hand stays on until the machine is off and the dome is grounded. The volunteer must not touch anyone or anything else while charged. Never use a volunteer with a pacemaker or other implanted medical device.' },
+
+/* ------------------------------ Part 4 ------------------------------ */
+{ id: '4.1', part: 4, title: 'The Rolling Soda Can', core: true, slides: '25, 28', world: { shelf: { x1: 396, x2: 930, y: 234 } },
+  intro: 'An empty aluminum can lies on its side on a smooth, level plastic tray, about 25 cm from the dome. Nothing has touched it: it is neutral.',
+  predict: [
+    { q: 'The can is neutral. Will it move when the dome is charged?', a: ['Yes', 'No. A neutral object feels no electric force'], ok: 0 },
+    { q: 'If it does move, which way?', a: ['Toward the dome', 'Away from the dome', 'It depends on whether the dome is + or −'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.can = w.add(new RollCan(w)); },
+  tick(w, d) { const c = d.can; if (w.vdg.on && !c.held && c.x < c.x0 - 30) d.rolled = true; if (c.touches > 0 && c.x > c.minX + 22) d.kick = true; },
+  steps: [
+    { t: 'Switch the machine on and watch the can. (Drag the can if you want to move it closer or farther.)', ok: (w, d) => d.rolled, note: 'The neutral can rolls toward the dome.' },
+    { t: 'Let the can roll all the way in and touch the dome.', ok: (w, d) => d.kick, note: 'It is pushed back, then pulled in again.' },
+    { t: 'Turn on <b>Show charges</b> and watch the can roll in once more.', ask: { q: 'Before it touches the dome, what is the can’s overall charge?', a: ['Neutral. Its electrons only shifted to one side', 'The same type as the dome', 'The opposite type to the dome'], ok: 0, no: 'No electrons entered or left the can before it touched. Check the “net” label on the can.' } }
+  ],
+  see: 'The can rolls toward the dome. If it touches the dome, it gets pushed back and then pulled in again.',
+  why: P => `<p>The can is a neutral conductor. Electrons in the can move ${P.s < 0 ? 'away from the negative dome, which leaves the near side positive' : 'toward the positive dome, which makes the near side negative'} (slide 25).</p><p>The near side is closer to the dome, so its attraction beats the far side’s repulsion and the can rolls in.</p><p>The can is still neutral overall: polarization is not charging (slide 28). Electrons moved within the can; none entered or left.</p><p>When it touches, it is charged by conduction with the dome’s type of charge, so it is repelled (a preview of Part 7).</p>`,
+  say: () => 'Nothing went onto or off the can. Its electrons just moved to one side.' },
+
+{ id: '4.2', part: 4, title: 'Bending Water', slides: '26–27', world: { vdg: false, wallX: 900 },
+  intro: 'A station away from the generator: the thinnest steady stream of water you can get, a balloon, some hair to rub it on, and a wall.',
+  predict: [{ q: 'Water is neutral. Will a charged balloon pull on the stream?', a: ['Yes. The stream bends toward the balloon', 'Yes. The stream bends away from the balloon', 'No. Neutral water ignores it'], ok: 0 }],
+  tools: ['charges'],
+  setup(w, d) { d.f = w.add(new Faucet(w)); d.pad = w.add(new RubPad(w, { x: 650, y: 370, wd: 120, ht: 78 })); d.b = w.add(new HandBalloon(w, { x: 510, y: 240 })); },
+  steps: [
+    { t: 'Drag the balloon back and forth across the hair until the ring around it closes.', ok: (w, d) => d.b.q <= -0.97 },
+    { t: 'Bring the balloon close to the stream without touching it.', ok: (w, d) => d.f.bentT > 0.8, note: 'The stream bends toward the balloon.' },
+    { t: 'Press the same balloon against the wall and let go.', ok: (w, d) => d.b.stuck, note: 'It sticks.' }
+  ],
+  see: 'The water stream bends toward the balloon. The balloon also sticks to the wall.',
+  why: () => '<p>Water and the wall are both neutral, and neither lets charge flow freely.</p><p>The negative balloon repels electrons in the nearest particles, distorting their electron clouds. Those particles become polarized, with their positive side facing the balloon (slides 26–27).</p><p>The negative balloon and the positive side of each particle attract. That bends the stream and holds the balloon on the wall. Turn on <b>Show charges</b> to see the polarized particles.</p>',
+  safety: 'Do this away from the Van de Graaff. Keep all water at least 2 m from the machine and from electrical outlets.' },
+
+/* ------------------------------ Part 5 ------------------------------ */
+{ id: '5.1', part: 5, title: 'Two-Can Induction', core: true, slides: '35–36', world: { shelf: { x1: 404, x2: 950, y: 292, label: 'plastic table (insulator)' } },
+  intro: 'Two empty aluminum cans each stand on an upside-down foam cup. They touch each other, about 15 cm from the dome. Can X is nearer the dome; Can Y is farther.',
+  predict: [
+    { q: P => `The dome is ${P.name}. If you separate the cans while the dome is nearby, what charge will each can have?`, a: ['Can X positive, Can Y negative', 'Can X negative, Can Y positive', 'Both the same as the dome', 'Both neutral'], ok: P => P.s < 0 ? 0 : 1 },
+    { q: 'Which can is acting as the ground?', a: ['Can Y, the far can', 'Can X, the near can', 'Neither'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.cans = w.add(new TwoCans(w)); d.b = w.add(new Hanger(w, { px: 890, py: 112, q: -1, label: '−', canRub: false, name: 'test balloon (negative)' })); },
+  tick(w, d, dt) {
+    const v = w.vdg, k = d.cans, b = d.b; if (v.on && Math.abs(v.Q) > 0.9) d.full = true; if (w.flags.separated && w.flags.sepInd > 0.15) d.sep = true; if (d.sep && !v.on && v.wasGrounded) d.gr = true;
+    if (d.gr && !b.held && !k.together && Math.abs(b.py + b.L - k.cy) < 60) { const dX = Math.abs(b.px - k.xX), dY = Math.abs(b.px - k.xY); if (dX < 100 && dX < dY) d.tx = (d.tx || 0) + dt; if (dY < 100 && dY < dX) d.ty = (d.ty || 0) + dt; }
+  },
+  steps: [
+    { t: 'Switch the machine on and leave it running.', ok: (w, d) => d.full && w.vdg.on },
+    { t: 'Holding only the foam cups, slide the cans apart while they are still near the dome.', ok: (w, d) => d.sep, hint: (w, d) => w.flags.separated && !d.sep ? 'The cans were pulled apart while the dome had little charge, so nothing was trapped. Push them back together and try again with the machine running.' : '' },
+    { t: 'Switch the machine off and ground the dome.', ok: (w, d) => d.gr },
+    { t: 'Test each can with the negative balloon: hang it beside Can X, then beside Can Y.', ok: (w, d) => d.tx > 1 && d.ty > 1, note: P => `The negative balloon is ${P.s < 0 ? 'pulled toward Can X and pushed away by Can Y' : 'pushed away by Can X and pulled toward Can Y'}.` },
+    { ask: { q: 'The dome never touched either can. What is this way of charging called?', a: ['Charging by induction', 'Charging by conduction', 'Charging by friction', 'Grounding'], ok: 0, no: 'Nothing was rubbed and the charged dome never made contact.' } }
+  ],
+  see: P => `With a ${P.name} dome, the negative balloon is ${P.s < 0 ? 'pulled toward Can X and pushed away by Can Y' : 'pushed away by Can X and pulled toward Can Y'}. The two cans end up with opposite charges.`,
+  why: P => `<p>With a ${P.name} dome, electrons in the two-can system are ${P.s < 0 ? 'pushed away from the dome, out of Can X and into Can Y' : 'pulled toward the dome, out of Can Y and into Can X'}. Can Y acts as the ground (slide ${P.s < 0 ? 36 : 35}).</p><p>Separating the cans traps the imbalance: X is ${P.oppSym}, Y is ${P.sym}. Together they still add up to zero.</p><p>The dome never touched either can. If you separate them with no charged object nearby, both stay neutral.</p>`,
+  say: P => `Electrons moved from one can to the other. X ended up ${P.opp}, the opposite of the dome.` },
+
+{ id: '5.2', part: 5, title: 'Charging an Electroscope by Induction', core: true, slides: '31–33, 37', world: { shelf: { x1: 356, x2: 950, y: 387, label: 'stand' } },
+  intro: 'A metal-leaf electroscope has a metal knob on top joined to two thin metal leaves inside a jar. When the leaves share a charge, they push apart.',
+  predict: [
+    { q: 'What will the leaves do when the electroscope comes close to the charged dome, without touching?', a: ['Spread apart', 'Hang straight down', 'Pull together'], ok: 0 },
+    { q: 'While it is still near the dome, you touch the knob with your finger. What do the leaves do?', a: ['Fall', 'Spread wider', 'Stay exactly as they are'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'finger', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.sc = w.add(new Scope(w, { x: 790 })); d.b = w.add(new Hanger(w, { px: 935, py: 34, L: 86, q: -1, label: '−', canRub: false })); },
+  tick(w, d, dt) {
+    ran(w, d); const v = w.vdg, s = d.sc, I = Math.abs(s.Idome), ch = !v.on && Math.abs(v.Q) > 0.5;
+    if (s.finger && I < 0.04) d.zero = true; if (d.zero && !s.finger) d.s0 = true;
+    if (d.s0 && ch && !s.finger && s.ang > 0.2 && Math.abs(s.q) < 0.06) d.spread = true; if (d.spread && s.ang < 0.05 && I < 0.06) d.fell = true;
+    if (d.fell && ch && s.finger && I > 0.15) d.gnd = true; if (d.gnd && !s.finger && I > 0.12 && Math.abs(s.q) > 0.12) d.lift = true;
+    if (d.lift && I < 0.05 && Math.abs(s.q) > 0.12 && s.ang > 0.12) d.kept = true;
+    d.lost = d.gnd && !d.kept && s.finger && I < 0.08;
+    if (d.kept && !d.b.held && hyp(d.b.bx - s.kx, d.b.by - s.ky) < 75) d.test = (d.test || 0) + dt;
+  },
+  steps: [
+    { t: 'Start neutral: press <b>Finger on knob</b>, then press it again to take your finger away.', ok: (w, d) => d.s0, note: 'The leaves hang straight down.' },
+    { t: 'Charge the dome for about 10 seconds, then switch the machine off.', ok: (w, d) => d.ran && !w.vdg.on },
+    { t: 'Slide the electroscope toward the dome, then slide it back. Keep it far enough away that no spark jumps.', ok: (w, d) => d.fell, note: 'The leaves spread when it is near and fall when it moves away. So far this is only polarization.', hint: (w, d) => w.flags.scopeSparked ? 'A spark charged the electroscope by contact. Slide it away and touch the knob with your finger to reset it.' : lostCharge(w) },
+    { t: 'Slide it near the dome again. While it is near, press <b>Finger on knob</b>.', ok: (w, d) => d.gnd, note: 'The leaves fall.', hint: lostCharge },
+    { t: 'Take your finger off first…', ok: (w, d) => d.lift },
+    { t: '…then slide the electroscope away from the dome.', ok: (w, d) => d.kept, note: 'The leaves spread again and stay spread, even far from the dome.', hint: (w, d) => d.lost ? 'Your finger was still on the knob when the electroscope moved away, so the new charge drained off. Slide it near again and take the finger off first.' : '' },
+    { t: 'Test it: hang the negative balloon close to the knob.', ok: (w, d) => d.test > 1, opt: true, note: P => P.s < 0 ? 'The leaves close up: the balloon pushes electrons down into positive leaves.' : 'The leaves spread wider: the balloon pushes even more electrons down into negative leaves.' },
+    { ask: { q: 'Compared with the dome, the electroscope’s final charge is…', a: ['The opposite type', 'The same type', 'Zero'], ok: 0, no: 'Turn on Show charges and read the “net” label on the electroscope.' } }
+  ],
+  see: 'The leaves open and close as the electroscope moves near and away. After the finger-touch sequence, they stay open even far from the dome.',
+  why: P => `<p>Sliding it near and away is only polarization: electrons shift ${P.s < 0 ? 'away from the negative dome, down into the leaves' : 'up toward the positive dome, out of the leaves'}. The leaves share a charge and push apart, but the electroscope is still neutral.</p><p>Your finger is a ground, an electron faucet or drain (slide 37). While the dome is near, electrons flow ${P.s < 0 ? 'out of the electroscope into your hand' : 'from your hand into the electroscope'}.</p><p>Removing the ground <em>before</em> the dome traps the new charge. The electroscope ends up ${P.opp}, the opposite of the dome (slides 31–33).</p>`,
+  say: () => 'Ground first off, charged object second. Get the order wrong and you lose the charge.' },
+
+{ id: '5.3', part: 5, title: 'Electrophorus Station', slides: '34', world: { vdg: false, cam: { s: 1.538, x: 180, y: 217 } },
+  intro: 'Induction without a generator: a foam plate, a wool cloth, an aluminum pie tin with a foam cup taped on as a handle, and a neon bulb.',
+  predict: [{ q: 'The pie tin never gets rubbed. It only sits on the charged foam plate and gets touched by your finger. Will it end up charged?', a: ['Yes, positive', 'Yes, negative', 'No, it stays neutral'], ok: 0 }],
+  tools: ['poke', 'charges'],
+  setup(w, d) { d.ep = w.add(new Electrophorus(w)); },
+  steps: [
+    { t: 'Drag the wool cloth back and forth across the foam plate to rub it.', ok: (w, d) => d.ep.plate.q <= -0.97, note: 'Styrofoam loves electrons more than wool does, so the plate is negative.' },
+    { t: 'Using the foam-cup handle, set the pie tin down on the foam plate.', ok: (w, d) => d.ep.onPlate && !d.ep.tin.held },
+    { t: 'Press <b>Touch tin with finger</b>.', ok: (w, d) => d.ep.onPlateSnaps >= 1, note: 'A small snap.' },
+    { t: 'Lift the tin by its handle and bring its rim up to the neon bulb.', ok: (w, d) => d.ep.count >= 1, note: 'The bulb flashes.' },
+    { t: 'Do it all again without rubbing the plate: set the tin down, touch it, lift it to the bulb.', ok: (w, d) => d.ep.count >= 2, note: 'It works again. The plate never gave up its charge.' },
+    { ask: { q: 'What charge did the tin carry up to the bulb?', a: ['Positive', 'Negative', 'None'], ok: 0, no: 'The negative plate pushed electrons to the top of the tin, and your finger let them leave.' } }
+  ],
+  see: 'A spark jumps from the tin, or the neon bulb flashes. You can recharge the tin many times without rubbing the plate again.',
+  why: () => '<p>The negative foam plate forces electrons to move from the bottom to the top of the pie tin (slide 34). The tin is polarized but still neutral.</p><p>When your finger touches it, those electrons move from the tin into your hand. The tin is now positively charged.</p><p>The foam is an insulator and never touches your finger, so it keeps its charge. That is why one rub can charge the tin over and over.</p>' },
+
+/* ------------------------------ Part 6 ------------------------------ */
+{ id: '6.1', part: 6, title: 'Look Inside the Machine', core: true, slides: '39–42', ownSign: true, chargesOn: true, world: { roller: 'Nylon' },
+  intro: 'Time to open it up. This machine has a rubber belt running over a nylon lower roller, with a metal comb near the belt at the top and another at the bottom.',
+  predict: [
+    { q: 'Where does the charge actually come from inside the machine?', a: ['Friction where the belt rubs on the roller moves electrons from one to the other', 'A hidden battery inside the base', 'The motor makes brand-new electrons', 'It pours in from the wall outlet'], ok: 0 },
+    { q: 'On the triboelectric series, rubber sits above nylon (rubber loves electrons more). Which one should end up negative?', a: ['The rubber belt', 'The nylon roller', 'Both'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'open', 'roller', 'charges'],
+  setup(w, d) { w.add(new Wand(w, { x: 120, y: 100 })); w.vdg.sign = sgn(rubCharge('Rubber', w.vdg.roller)) || -1; d.r0 = w.vdg.roller; },
+  tick(w, d, dt) {
+    const v = w.vdg; if (!v.on && v.wasGrounded) d.g = true; if (v.domeOff) d.open = true; if (v.domeOff && v.on) d.crank = (d.crank || 0) + dt;
+    if (d.crank > 3 && !v.domeOff && Math.abs(v.Q) > 0.8) { if (!d.first) d.first = sgn(v.Q); else if (sgn(v.Q) !== d.first) d.flip = true; }
+  },
+  steps: [
+    { t: 'With the machine off, ground the dome with the wand.', ok: (w, d) => d.g },
+    { t: 'Press <b>Lift the dome off</b> and look inside.', ok: (w, d) => d.open, note: 'A motor turning a rubber belt over two rollers. No battery, no hidden charge.' },
+    { t: 'Find the belt and the lower roller on the series below.', ask: { q: (P, d, w) => `The belt is rubber and the lower roller is ${w.vdg.roller}. When they rub, which one gains electrons?`, a: ['The rubber belt', 'The roller', 'Neither'], ok: P => P.s < 0 ? 0 : 1, no: 'The material higher on the series loves electrons more, so it gains them and becomes negative.' } },
+    { t: 'Switch the power on to turn the belt slowly, and watch the electrons.', ok: (w, d) => d.crank > 3, note: P => P.s < 0 ? 'Electrons collect on the belt at the roller and ride up.' : 'The roller takes electrons from the belt, so the belt carries electrons down, away from the top.' },
+    { t: 'Switch off, put the dome back, then run the machine at full speed.', ok: (w, d) => d.first, note: P => `The dome charges ${P.name}, just as the series predicted.` },
+    { t: 'Swap the lower roller for a material on the other side of rubber, and run it again.', ok: (w, d) => d.flip, opt: true, note: 'The dome’s polarity flips.' }
+  ],
+  extra(box, w) { ladder(box, { Rubber: 'belt', [w.vdg.roller]: 'lower roller' }); },
+  see: 'The machine is a motor turning a rubber belt over rollers. There is no battery or hidden charge.',
+  why: (P, d, w) => `<p>Where the belt meets the lower roller, two different materials are pressed together and pulled apart again and again: charging by friction (slides 39–40).</p><p>Electrons move to the material with the greater electron affinity (slide 41), as the triboelectric series predicts (slide 42). With a ${w.vdg.roller.toLowerCase()} roller, the rubber belt ${P.s < 0 ? 'gains electrons and carries them up; the upper comb lets them reach the dome' : 'loses electrons to the roller, so it arrives at the top short of electrons and takes them from the dome through the upper comb'}.</p><p>The lower comb is connected to the ground. It ${P.s < 0 ? 'supplies' : 'removes'} the electrons, so the motor moves charge but never creates it (slide 44).</p><p>If a machine has interchangeable rollers, swapping them often reverses the polarity.</p>` },
+
+{ id: '6.2', part: 6, title: 'Build Your Own Series', slides: '42–43',
+  intro: 'Rub an object with a cloth, then use the charged dome as a reference to find out which charge the object picked up. Keep the dome switched off while you test.',
+  predict: [
+    { q: 'When PVC is rubbed with wool, which one gains electrons?', a: ['The PVC', 'The wool', 'Neither'], ok: 0 },
+    { q: 'How can the charged dome tell you what charge an object has?', a: ['If the object is repelled, it has the same type of charge as the dome', 'If the object is attracted, it must have the opposite charge', 'The dome changes color near a charged object'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'pair', 'hang', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.obj = 'pvc'; d.cl = 'Wool'; d.trials = {}; d.ans = {}; this.fresh(w, d); },
+  fresh(w, d) {
+    if (d.h) w.remove(d.h); if (d.pad) w.remove(d.pad);
+    d.pad = w.add(new RubPad(w, { x: 810, y: 320, material: d.cl, label: d.cl.toLowerCase() })); d.h = w.add(new Hanger(w, Object.assign({ px: 660, py: 150 }, OBJ[d.obj]))); d.hang = 'object'; d.objQ = 0; d.t = 0;
+  },
+  setHang(w, d, what) {
+    if (what === d.hang) return; const h = d.h;
+    if (what === 'cloth') { d.objQ = h.q; Object.assign(h, { kind: 'cloth', material: d.cl, name: d.cl.toLowerCase() + ' cloth', r: 22, q: d.pad.q, canRub: false }); d.pad.hidden = true; }
+    else { d.pad.q = h.q; Object.assign(h, OBJ[d.obj], { q: d.objQ, canRub: true }); d.pad.hidden = false; }
+    h.seen = null; h.dAvg = 0; d.hang = what; d.t = 0;
+  },
+  tick(w, d, dt) {
+    ran(w, d); const v = w.vdg, h = d.h, key = d.obj + '|' + d.cl;
+    if (d.hang === 'object' && Math.abs(h.q) > 0.5 && !d.trials[key]) { d.trials[key] = { obj: d.obj, cl: d.cl, object: null, cloth: null, q: sgn(h.q) }; d.dirty = true; }
+    const tr = d.trials[key]; if (!tr) return;
+    if (!h.held && !v.on && h.gap < 200 && Math.abs(v.Q) > 0.5 && Math.abs(h.q) > 0.3) { d.t += dt; if (d.t > 1.2 && h.seen && tr[d.hang] !== h.seen) { tr[d.hang] = h.seen; d.dirty = true; } }
+    else if (h.gap > 230) { d.t = 0; h.seen = null; }
+  },
+  steps: [
+    { t: 'Charge the dome for about 10 seconds, then switch the machine off.', ok: chargedOff },
+    { t: 'Pick an <b>Object</b> and a <b>Cloth</b>. Drag the object back and forth across the cloth, then hang it near the dome and let go.', ok: (w, d) => Object.values(d.trials).some(t => t.object), hint: lostCharge },
+    { t: 'Pulled in? That could mean opposite charge or no charge at all. Press <b>Hang the cloth</b> and test the cloth near the dome too.', ok: (w, d) => Object.values(d.trials).some(t => t.object === 'repel' || t.cloth === 'repel'), hint: lostCharge },
+    { t: 'Test three different pairs and record each object’s charge in the class chart below.', ok: (w, d) => d.good >= 3, hint: lostCharge },
+    { t: 'Find an object whose charge flips when you swap the cloth.', ok: (w, d) => d.flip, opt: true, note: 'The acrylic rod: negative after rabbit fur, positive after wool, silk or cotton.' }
+  ],
+  extra(box, w, d) {
+    const keys = Object.keys(d.trials), P = pol(w.vdg.sign), say = r => r === 'repel' ? 'pushed away' : r === 'attract' ? 'pulled in' : '—'; d.good = 0; d.flip = false;
+    if (!keys.length) { box.append(el('p', { class: 'lede' }, 'The class chart fills in here as you test each pair.')); return; }
+    const t = el('table', { class: 'log' }, `<thead><tr><th>Pair rubbed</th><th>Object</th><th>Cloth</th><th>Object is</th></tr></thead>`), tb = el('tbody'), signs = {}; let need = false;
+    keys.forEach((k, i) => {
+      const tr = d.trials[k], row = el('tr'), td = el('td'), sel = el('select', { id: 'sign' + i, 'aria-label': 'Charge on the ' + OBJ[tr.obj].name });
+      [['', 'Choose…'], ['-1', 'negative (−)'], ['1', 'positive (+)']].forEach(o => sel.append(new Option(o[1], o[0]))); sel.value = d.ans[k] || ''; sel.onchange = () => { d.ans[k] = sel.value; d.dirty = true; };
+      const proof = tr.object === 'repel' || tr.cloth === 'repel'; td.append(sel);
+      if (d.ans[k]) { if (!proof) { need = true; td.append(el('span', { style: 'margin-left:6px;font-weight:700;color:var(--warn)' }, '?')); } else { const right = +d.ans[k] === tr.q; td.append(mark(right)); if (right) { d.good++; (signs[tr.obj] = signs[tr.obj] || new Set()).add(tr.q); } } }
+      row.append(el('td', {}, `${OBJ[tr.obj].name} + ${tr.cl.toLowerCase()}`), el('td', {}, say(tr.object)), el('td', {}, say(tr.cloth)), td); tb.append(row);
+    });
+    t.append(tb); box.append(el('p', { class: 'q' }, `Class chart (the dome is ${P.name})`), t); d.flip = Object.values(signs).some(s => s.size > 1);
+    if (need) box.append(el('p', { class: 'hint' }, 'Attraction alone can’t settle it: a neutral object is pulled in too. Hang the cloth and test it. Whatever the cloth is, the object is the opposite.'));
+  },
+  after(box) { box.append(el('h2', {}, 'Compare with the series')); ladder(box); },
+  see: 'Some rubbed objects are repelled by the dome and some are attracted. Swapping the cloth can flip the result.',
+  why: () => '<p>When two different materials are rubbed, electrons move to the one with the greater electron affinity. Which material becomes negative depends on its partner’s position in the series (slide 43).</p><p>The dome works as a reference charge, and repulsion is the reliable test (slide 12). When an object is only attracted, test its cloth: the two always end up with opposite charges.</p><p>Compare your chart with the series from slide 42. The same object can end up + with one cloth and − with another.</p>' },
+
+{ id: '6.3', part: 6, title: 'Where Did the Other Charge Go?', slides: '44',
+  intro: 'A discussion demo. The counter in the corner keeps score of the charge on four things: a balloon, the hair it is rubbed on, the dome, and the ground.',
+  predict: [{ q: 'After the machine runs, the dome is full of charge. Did the machine create that charge?', a: ['No. The electrons were moved from somewhere else', 'Yes. The motor creates charge', 'Yes. Friction makes new electrons'], ok: 0 }],
+  tools: ['power', 'wand', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.pad = w.add(new RubPad(w, { x: 800, y: 330 })); d.b = w.add(new Hanger(w, { px: 640, py: 190 })); w.over.push(c => ledger(c, w, d)); },
+  tick(w, d, dt) { ran(w, d); const b = d.b, p = d.pad, dist = hyp(b.bx - (p.x + p.wd / 2), b.by - (p.y + p.ht / 2)); if (b.q < -0.9 && !b.held && dist < 135) d.near = (d.near || 0) + dt; },
+  steps: [
+    { t: 'Drag the balloon back and forth across the hair and watch the charge count.', ok: (w, d) => d.b.q <= -0.97, note: 'The balloon gains exactly what the hair loses. Together they are still zero.' },
+    { t: 'Let the balloon hang just beside the hair without touching it.', ok: (w, d) => d.near > 1, note: 'The hair reaches toward the balloon: both are charged, with opposite types.' },
+    { t: 'Now switch the machine on and watch the dome and the ground.', ok: (w, d) => d.ran },
+    { ask: { q: P => P.s < 0 ? 'The dome gained electrons. Where did they come from?' : 'The dome lost electrons. Where did they go?', a: P => P.s < 0 ? ['Up from the ground, through the connection at the base', 'The motor made them', 'Friction created them out of nothing'] : ['Down into the ground, through the connection at the base', 'The motor destroyed them', 'They turned into protons'], ok: 0, no: 'Look at the charge count: the dome and the ground always change by equal and opposite amounts.' } }
+  ],
+  see: 'Whatever the balloon gains, the hair loses. Whatever the dome gains, the ground loses. Each pair always adds up to zero.',
+  why: P => `<p>Charge is neither created nor destroyed. It is only transferred from one object to another in the form of electrons (slide 44).</p><p>When a balloon is rubbed on hair, the hair might lose about 2 trillion electrons, and the balloon gains about 2 trillion. The total charge of the system is zero before and after.</p><p>In the generator, the electrons that ${P.s < 0 ? 'collect on a negative dome come in through the ground connection at the base' : 'leave a positive dome go out through the ground connection at the base'}, so the total stays the same.</p>`,
+  say: P => P.s < 0 ? 'Every extra electron on the dome is an electron that’s missing from somewhere else.' : 'Every electron missing from the dome is an extra electron somewhere else.' },
+
+/* ------------------------------ Part 7 ------------------------------ */
+{ id: '7.1', part: 7, title: 'Attract, Touch, Repel', core: true, slides: '11, 47–48',
+  intro: 'A small ball of aluminum foil hangs from a ring stand by a nylon thread, so it can swing freely. It is neutral.',
+  predict: [
+    { q: 'The foil ball is neutral. What will it do as it gets close to the charged dome?', a: ['Swing toward the dome', 'Swing away from the dome', 'Nothing'], ok: 0 },
+    { q: 'What happens right after the ball touches the dome?', a: ['It is pushed sharply away', 'It sticks to the dome and stays', 'It drops straight down and hangs still'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.ball = w.add(new Hanger(w, { stand: 1, px: 650, py: 85, L: 130, r: 10, kind: 'foil', cond: true, polz: 0.7, leak: 3, canRub: false, material: 'Aluminum' })); },
+  steps: [
+    { t: 'Switch the machine on.', ok: w => w.vdg.on && Math.abs(w.vdg.Q) > 0.8 },
+    { t: 'Slowly drag the ring stand toward the dome until the ball responds.', ok: (w, d) => d.ball.touches >= 1, note: 'The ball is pulled to the dome, touches it, then is pushed sharply away.' },
+    { t: 'Leave the stand where it is and watch several cycles.', ok: (w, d) => d.ball.touches >= 3 },
+    { t: 'Park the grounded wand on the far side of the ball, close enough for the ball to reach it.', ok: (w, d) => d.ball.groundHits >= 2, opt: true, note: 'The ball shuttles back and forth, carrying a little charge from the dome to the ground on every trip.' }
+  ],
+  see: 'The ball is pulled to the dome, touches it, then is pushed sharply away. It bounces back and forth.',
+  why: P => `<p><b>Attract:</b> the neutral ball is polarized and pulled in (slide 11).</p><p><b>Touch:</b> charge is shared between the dome and the ball, giving the ball the same type of charge as the dome (slides 47–48). Electrons move ${P.s < 0 ? 'from the negative dome onto the ball' : 'from the ball onto the positive dome'}.</p><p><b>Repel:</b> like charges repel.</p><p>The ball comes back once it loses its charge to the air or to a nearby grounded object, and the cycle starts again.</p>`,
+  say: () => 'Attract because it’s neutral, touch, then repel because now it matches.' },
+
+{ id: '7.2', part: 7, title: 'Charge-Sharing Sphere', core: true, slides: '47–50', world: { shelf: { x1: 730, x2: 960, y: 430, label: 'stand' } },
+  intro: 'A small metal sphere on an insulating handle can carry charge from place to place. An electroscope on the far stand shows whether any charge arrives.',
+  predict: [
+    { q: 'If the sphere touches the dome, what kind of charge will it carry away?', a: ['The same type as the dome', 'The opposite type to the dome', 'None'], ok: 0 },
+    { q: 'Will a plastic ruler pick up charge from the dome the same way?', a: ['No. It carries little or none', 'Yes. Just as much as the metal sphere', 'Yes. Even more than the sphere'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'finger', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.sc = w.add(new Scope(w, { x: 845, fixed: true })); d.pr = w.add(new Probe(w, { x: 560, y: 300 })); d.ru = w.add(new Rod(w, { x: 520, y: 440, style: 'ruler', len: 170 })); d.b = w.add(new Hanger(w, { px: 690, py: 20, L: 80, q: -1, label: '−', canRub: false })); },
+  tick(w, d, dt) {
+    ran(w, d); const v = w.vdg, s = d.sc;
+    if (d.ran && !v.on && Math.abs(d.pr.q) > 0.5) d.p1 = true; if (d.p1 && Math.abs(s.q) > 0.2 && s.ang > 0.25) d.p2 = true;
+    if (d.p2 && s.finger) d.p3a = true; if (d.p3a && !s.finger && s.ang < 0.05) d.p3 = true;
+    if (d.p3 && d.ru.touching && Math.abs(v.Q) > 0.3 && !d.r1) d.r1 = w.t; if (d.r1 && w.flags.rulerOnScope > d.r1) d.r2 = true;
+    if (d.p2 && Math.abs(s.q) > 0.2 && !d.b.held && hyp(d.b.bx - s.kx, d.b.by - s.ky) < 75) d.test = (d.test || 0) + dt;
+  },
+  steps: [
+    { t: 'Charge the dome for about 10 seconds, then switch the machine off.', ok: (w, d) => d.ran && !w.vdg.on },
+    { t: 'Holding the handle, touch the metal sphere to the dome, then pull it away.', ok: (w, d) => d.p1, hint: lostCharge },
+    { t: 'Touch the sphere to the knob of the electroscope.', ok: (w, d) => d.p2, note: 'The leaves spread: the sphere carried charge across the room.' },
+    { t: 'Hang the negative balloon close to the knob to identify the charge.', ok: (w, d) => d.test > 1, opt: true, note: P => P.s < 0 ? 'The leaves spread wider, so the electroscope is negative, like the dome.' : 'The leaves close up, so the electroscope is positive, like the dome.' },
+    { t: 'Ground the electroscope: press <b>Finger on knob</b>, then press it again.', ok: (w, d) => d.p3, note: 'The leaves fall.' },
+    { t: 'Repeat with the plastic ruler: touch it to the dome, then to the electroscope knob.', ok: (w, d) => d.r2, note: 'The leaves barely move. The ruler carried little or no charge.', hint: lostCharge },
+    { ask: { q: 'After the sphere took some charge away, what is left on the dome?', a: ['The same type of charge, just less of it', 'The opposite type of charge', 'Nothing. The sphere took it all'], ok: 0, no: 'Check the dome charge meter: it dropped a little each time the sphere touched.' } }
+  ],
+  see: 'The metal sphere carries off enough charge to open the electroscope leaves. The plastic ruler carries little or none.',
+  why: P => `<p>Charging by conduction is a charge-sharing event. At contact, the excess charge is shared by the two conductors so it can spread over a larger area, and both end with the same type of charge (slides 47–49).</p><p>Here electrons moved ${P.s < 0 ? 'from the negative dome onto the sphere' : 'from the sphere onto the positive dome'}. The dome keeps the same type of charge, just less of it.</p><p>The ruler is an insulator. It can’t be charged by conduction, because electrons are unable to flow freely across its surface (slide 50).</p>` },
+
+{ id: '7.3', part: 7, title: 'Puffed-Rice Fountain', slides: '47, 10',
+  intro: 'A small foil cup filled with puffed rice sits on top of the grounded dome.',
+  predict: [{ q: 'What will the puffed rice do when the dome is charged?', a: ['Leap out of the cup', 'Pack down tighter in the cup', 'Nothing'], ok: 0 }],
+  tools: ['power', 'wand', 'charges'],
+  setup(w, d) { w.add(new Wand(w)); d.rice = w.add(new RiceCup(w)); },
+  tick(w, d) { const v = w.vdg; if (d.rice.flown >= 45 && !v.on && v.wasGrounded) d.end = true; },
+  steps: [
+    { t: 'Switch the machine on.', ok: (w, d) => d.rice.flown >= 45, note: 'The pieces leap out of the cup in a fountain.' },
+    { t: 'Switch off and ground the dome before cleaning up.', ok: (w, d) => d.end }
+  ],
+  see: 'The pieces leap out of the cup in a fountain.',
+  why: () => '<p>Each piece touches the charged cup and picks up the same type of charge by conduction (slide 47).</p><p>Then like charges repel (slide 10): every piece is pushed away from the dome and from every other piece.</p><p>It is a quick way to see both ideas at once.</p>',
+  safety: 'This is messy. Keep it well away from student devices and the machine’s motor vents.' },
+
+/* ------------------------------ Part 8 ------------------------------ */
+{ id: '8.1', part: 8, title: 'The Spark', core: true, slides: '52–54',
+  intro: 'The discharge wand is a metal sphere wired to the ground. Bring it close enough to the charged dome and the air between them breaks down.',
+  predict: [
+    { q: P => `This dome charges ${P.name}. When the spark jumps, which way do electrons go?`, a: ['Out of the dome, into the ground', 'Out of the ground, into the dome', 'Neither way. Protons jump the gap'], ok: P => P.s < 0 ? 0 : 1 },
+    { q: 'Would the answer change if the dome had the other type of charge?', a: ['Yes. The electrons would flow the other way', 'No. Electrons always flow toward the ground', 'Yes. Then protons would move instead'], ok: 0 }
+  ],
+  tools: ['power', 'wand', 'charges', 'lights'],
+  setup(w, d) { w.add(new Wand(w, { showGap: true })); },
+  tick(w, d) { const n = w.flags.sparks || 0, v = w.vdg; if (S.lights) d.n0 = n; else if (n > (d.n0 ?? 0)) d.dark = true; if (d.dark && !v.on && v.wasGrounded) d.end = true; },
+  steps: [
+    { t: 'Switch the machine on.', ok: w => w.vdg.on && Math.abs(w.vdg.Q) > 0.6 },
+    { t: 'Slowly drag the discharge wand toward the dome until a spark jumps. Note the gap.', ok: w => w.flags.sparks >= 1, note: (P, d, w) => `The spark jumped a gap of about ${(w.flags.sparkGap / CM).toFixed(1)} cm.` },
+    { t: 'Switch the <b>Lights</b> off and make another spark.', ok: (w, d) => d.dark, note: 'In the dark you can see the spark’s branched path.' },
+    { t: 'Switch the machine off and ground the dome.', ok: (w, d) => d.end },
+    { ask: { q: 'Either way, what is the dome’s charge right after it is grounded?', a: ['Neutral', 'Still the same as before', 'The opposite of what it was'], ok: 0, no: 'Check the dome charge meter after a spark.' } }
+  ],
+  see: 'A bright snapping spark jumps across a gap of a few centimeters. In the dark, you can see the spark’s branched path.',
+  why: P => `<p>The ground is a seemingly infinite reservoir of electrons (slide 52). It can give electrons to a charged object or take them from it.</p><p>A negative dome sends its excess electrons to the ground (slide 53). A positive dome receives electrons from the ground (slide 54). Either way the dome becomes neutral. Protons never move.</p><p>This dome is ${P.name}, so the electrons went ${P.s < 0 ? 'out of the dome, through the wand and its wire, into the ground' : 'out of the ground, up the wire and through the wand, into the dome'}. Turn on <b>Show charges</b> and spark it again to watch them go.</p>`,
+  say: P => `Our dome is ${P.name}, so that spark was electrons ${P.s < 0 ? 'leaving the dome and going into the ground' : 'coming out of the ground and going into the dome'}.`,
+  safety: 'Use only the wand’s sphere as the spark target. Never let a student’s finger be the target, and keep the wand’s ground wire attached.' },
+
+{ id: '8.2', part: 8, title: 'Plastic Straw vs. Foil Straw', core: true, slides: '55',
+  intro: 'Two drinking straws: one plain plastic, one wrapped in aluminum foil. You hold each by one end. The streamers show whether the dome is still charged.',
+  predict: [{ q: 'Which straw will let the charge drain through your hand to the ground?', a: ['The foil-wrapped straw', 'The plain plastic straw', 'Both', 'Neither'], ok: 0 }],
+  tools: ['power', 'charges'],
+  setup(w, d) { w.add(new Wand(w, { x: 120, y: 380 })); w.add(streamers(w)); d.ins = w.add(new Rod(w, { x: 640, y: 300, style: 'straw', len: 130 })); d.con = w.add(new Rod(w, { x: 660, y: 410, style: 'foil', cond: true, len: 130 })); },
+  tick(w, d, dt) { ran(w, d); const v = w.vdg; if (d.ins.touching && !v.on && Math.abs(v.Q) > 0.6) d.it = (d.it || 0) + dt; if (d.it > 0.6 && !v.on && d.con.touching && v.wasGrounded) d.gone = true; },
+  steps: [
+    { t: 'Switch the machine on until the streamers stand out, then switch it off.', ok: chargedOff },
+    { t: 'Touch the free end of the plastic straw to the dome and hold it there.', ok: (w, d) => d.it > 0.6, note: 'The streamers stay up. Grounding does not occur.', hint: lostCharge },
+    { t: 'Now touch the dome with the foil-wrapped straw.', ok: (w, d) => d.gone, note: 'The streamers fall at once. Grounding does occur.' }
+  ],
+  see: 'With the plastic straw, the streamers stay up. With the foil straw, they fall at once.',
+  why: () => '<p>Grounding involves the movement of electrons between the charged object and the ground, so the object and the ground must be connected by a conductor (slide 55).</p><p>The foil and your body form a conducting pathway to the ground. Plastic does not.</p><p>This is the generator’s version of the two pie-plate setups on slide 55.</p>' },
+
+{ id: '8.3', part: 8, title: 'Glowing Fluorescent Tube', slides: '56',
+  intro: 'A fluorescent tube that is not plugged into anything. You hold it firmly at one end.',
+  predict: [{ q: 'Can the dome light a tube that isn’t plugged in?', a: ['Yes, even without touching it', 'Only if the tube touches the dome', 'No'], ok: 0 }],
+  tools: ['power', 'wand', 'charges', 'lights'],
+  setup(w, d) { w.add(new Wand(w, { x: 120, y: 380 })); d.tube = w.add(new Tube(w, { x: 640, y: 300 })); },
+  tick(w, d, dt) { if (d.tube.glowv > 0.3 && !d.tube.touching) d.glow = (d.glow || 0) + dt; },
+  steps: [
+    { t: 'Switch the machine on and switch the <b>Lights</b> off.', ok: w => w.vdg.on && !S.lights },
+    { t: 'Bring the free end of the tube toward the dome, without touching.', ok: (w, d) => d.glow > 1.2, note: 'The tube flickers and glows.' },
+    { t: 'Move the tube closer and farther to see the glow change.', ok: (w, d) => d.glow > 5, opt: true }
+  ],
+  see: 'The tube flickers and glows, even without touching the dome.',
+  why: P => `<p>Charge flows between the dome and the ground through the gas in the tube and your hand. With this ${P.name} dome, electrons ${P.s < 0 ? 'leave the dome' : 'flow into the dome'}.</p><p>Excess electrons find each other repulsive and spread out to get as far apart as they can. Grounding gives them extra space (slide 56).</p><p>The moving charge is what makes the gas in the tube glow.</p>`,
+  safety: 'Fluorescent tubes contain a small amount of mercury and break easily. Hold the tube with both hands away from your face, and have a breakage cleanup plan.' }
+];
+/* ================================================================== *
+ *  App: guided flow, toolbar, free play, input, main loop
+ * ================================================================== */
+const cv = $('#stage'), ctx = cv.getContext('2d'), wrap = $('#wrap'), panel = $('#panel'), toolbar = $('#toolbar');
+let world = null, demo = null, D = null, tools = [], drag = null, scale = 1, toastT = 0;
+const val = (x, ...a) => typeof x === 'function' ? x(...a) : x;
+const P = () => pol(world && world.vdg ? world.vdg.sign : S.polarity);
+const shuf = n => { const a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const find = cls => world.props.find(p => p instanceof cls);
+
+function toast(msg, ms = 4800) { const t = $('#toast'); t.textContent = msg; delete t.dataset.off; clearTimeout(toastT); toastT = setTimeout(() => { t.dataset.off = '1'; }, ms); }
+function setPower(on) { if (world && world.vdg) world.vdg.on = on; audio.setHum(on && !!world && !!world.vdg); }
+
+/* ---------- free play ---------- */
+const FREE = {
+  top: [['none', 'Nothing'], ['streamers', 'Tissue streamers'], ['tins', 'Pie tins'], ['rice', 'Puffed rice']],
+  tray: [['none', 'Nothing'], ['can', 'Rolling soda can'], ['cans', 'Two cans on cups'], ['scope', 'Electroscope']],
+  tools: [['balloon', 'Balloon + hair'], ['ball', 'Foil-ball pendulum'], ['pvc', 'PVC pipe'], ['metal', 'Metal rod'], ['probe', 'Metal sphere'], ['bits', 'Paper bits'], ['tube', 'Fluorescent tube']]
+};
+const free = Object.assign({ top: 'streamers', tray: 'none', tools: ['balloon', 'ball'] }, store.get('free', {}));
+function buildFree(keep) {
+  const shelf = { can: { x1: 396, x2: 930, y: 234 }, cans: { x1: 404, x2: 950, y: 292, label: 'plastic table (insulator)' }, scope: { x1: 356, x2: 950, y: 387, label: 'stand' } }[free.tray] || null;
+  const w = world = new World({ shelf }), has = t => free.tools.includes(t);
+  if (keep) { w.vdg.Q = keep.Q; w.vdg.on = keep.on; }
+  w.add(new Wand(w, { showGap: true }));
+  if (free.top === 'streamers') w.add(streamers(w)); if (free.top === 'tins') w.add(new TinStack(w, { onDome: true })); if (free.top === 'rice') w.add(new RiceCup(w));
+  if (free.tray === 'can') w.add(new RollCan(w)); if (free.tray === 'cans') w.add(new TwoCans(w)); if (free.tray === 'scope') w.add(new Scope(w, { x: 790 }));
+  if (has('bits')) w.add(new PaperBits(w, { x: 130, y: 470 }));
+  if (has('pvc')) w.add(new Rod(w, { x: 560, y: 430, style: 'pvc' }));
+  if (has('metal')) w.add(new Rod(w, { x: 590, y: 480, style: 'metal', cond: true, len: 190, ang: 0.2 }));
+  if (has('tube')) w.add(new Tube(w, { x: 440, y: 70 }));
+  if (has('probe')) w.add(new Probe(w, { x: 500, y: 400 }));
+  if (has('ball')) w.add(new Hanger(w, { stand: 1, px: 740, py: 85, L: 130, r: 10, kind: 'foil', cond: true, polz: 0.7, leak: 3, canRub: false, material: 'Aluminum' }));
+  if (has('balloon')) { w.add(new RubPad(w, { x: 860, y: 420, wd: 110, ht: 70 })); w.add(new Hanger(w, { px: 600, py: 36, showGap: true })); }
+}
+function renderFree() {
+  panel.textContent = '';
+  panel.append(el('div', { class: 'eyebrow' }, '<span>Free play</span>'), el('h1', {}, 'Your bench, your experiment'), el('p', { class: 'lede' }, 'Choose what goes on the bench, then drag things around. Everything behaves the way it does in the guided demos.'));
+  const tray = el('div', { class: 'tray' });
+  const group = (legend, key, multi) => {
+    const fs = el('fieldset'); fs.append(el('legend', {}, legend));
+    FREE[key].forEach(([v, name]) => {
+      const inp = el('input', { type: multi ? 'checkbox' : 'radio', name: 'free_' + key, id: `free_${key}_${v}`, value: v }), lb = el('label'); inp.checked = multi ? free.tools.includes(v) : free[key] === v;
+      inp.onchange = () => { if (multi) free.tools = FREE.tools.map(t => t[0]).filter(t => $(`#free_tools_${t}`).checked); else free[key] = v; store.set('free', free); build(true); };
+      lb.append(inp, name); fs.append(lb);
+    });
+    tray.append(fs);
+  };
+  group('On top of the dome', 'top'); group('Beside the dome', 'tray'); group('Hand tools', 'tools', true); panel.append(tray);
+  panel.append(el('h2', {}, 'Things to try'), el('ul', { class: 'try' }, [
+    'Charge the dome, then find the longest spark you can make with the wand. How does the gap change as the dome loses charge?',
+    'Rub the balloon on the hair. Does it swing toward the dome or away? Flip <b>Dome charges</b> at the top and try again.',
+    'Put the foil ball between the dome and the grounded wand so it rings back and forth like a bell.',
+    'With streamers on the dome, which tools make them fall: the PVC pipe, the metal rod, or the metal sphere?',
+    'Charge the electroscope by induction, then again by conduction with the metal sphere. Compare the two final charges.',
+    'Separate the two cans near the charged dome, then use the balloon to work out which can is which.',
+    'Lights off: how far away can the fluorescent tube be and still glow?'
+  ].map(t => `<li>${t}</li>`).join('')));
+}
+
+/* ---------- building a scene ---------- */
+function build(keepCharge) {
+  const keep = keepCharge && world && world.vdg ? { Q: world.vdg.Q, on: world.vdg.on } : null; if (!keep) setPower(false);
+  S.lights = true; drag = null;
+  if (S.mode === 'free') buildFree(keep);
+  else {
+    const cfg = Object.assign({}, demo.world); if (demo.mystery) { cfg.mystery = D.stage !== 'explain'; cfg.sign = D.sign; }
+    world = new World(cfg); D.data = {}; D.done = demo.steps.map(() => false); D.asks = {}; demo.setup(world, D.data); world.locked = D.stage === 'predict';
+  }
+  $('#lock').hidden = !world.locked; renderToolbar();
+}
+function startDemo(id) {
+  demo = DEMOS.find(d => d.id === id) || DEMOS[0]; store.set('demo', demo.id); try { history.replaceState(null, '', '#' + demo.id); } catch (e) { /* file:// in some browsers */ }
+  D = { stage: 'predict', picks: demo.predict.map(() => null), order: demo.predict.map(q => shuf(val(q.a, pol(-1)).length)), sign: Math.random() < 0.5 ? -1 : 1 };
+  S.charges = !!demo.chargesOn; build(); renderHeader(); renderPanel();
+}
+function resetDemo() { if (S.mode === 'guided' && D.stage === 'explain') D.stage = 'test'; build(); renderPanel(); }
+function setMode(m) {
+  S.mode = m; $('#modeGuided').setAttribute('aria-pressed', m === 'guided'); $('#modeFree').setAttribute('aria-pressed', m === 'free'); $('#demoNav').hidden = m === 'free';
+  setPower(false); world = null;
+  if (m === 'free') { S.charges = false; try { history.replaceState(null, '', '#free'); } catch (e) { /* ignore */ } build(); renderHeader(); renderPanel(); } else startDemo(demo ? demo.id : store.get('demo', '0'));
+}
+function setPolarity(s) {
+  S.polarity = s; store.set('polarity', s); renderHeader();
+  if (S.mode === 'free') build(); else if (!demo.mystery && !demo.ownSign) { build(); renderPanel(); }
+}
+
+/* ---------- header and demo menu ---------- */
+function renderHeader() {
+  $('#demoPick').innerHTML = demo ? `<b>Demo ${demo.id}</b>${demo.title}` : '';
+  const lock = S.mode === 'guided' && demo && (demo.mystery || demo.ownSign);
+  for (const b of [$('#polNeg'), $('#polPos')]) { b.setAttribute('aria-pressed', !lock && +b.dataset.v === S.polarity); b.disabled = !!lock; }
+  $('#polLbl').textContent = lock ? (demo.mystery ? 'Dome charges: a mystery' : 'Dome charges: set by the roller') : 'Dome charges';
+  $('#soundBtn').setAttribute('aria-pressed', S.sound); $('#soundBtn').textContent = S.sound ? 'Sound: on' : 'Sound: off';
+}
+function renderMenu() {
+  const body = $('#menuBody'); body.textContent = '';
+  PARTS.forEach((name, pi) => {
+    const sec = el('section', { class: 'part' }), ul = el('ul'); sec.append(el('h3', {}, pi ? `Part ${pi} · ${name}` : name));
+    DEMOS.filter(d => d.part === pi).forEach(d => {
+      const b = el('button', { type: 'button', 'aria-current': d === demo ? 'true' : null }, `<span class="n">${d.id}</span><span>${d.title}</span><span class="s"${S.done[d.id] ? ' data-done' : ''}>${S.done[d.id] ? '✓ done' : d.core ? '★ core' : ''}</span>`);
+      b.onclick = () => { $('#menu').close(); startDemo(d.id); }; const li = el('li'); li.append(b); ul.append(li);
+    });
+    sec.append(ul); body.append(sec);
+  });
+}
+
+/* ---------- the notebook panel ---------- */
+function renderPanel() {
+  if (S.mode === 'free') return renderFree();
+  const p = P(), d = demo, cur = ['predict', 'test', 'explain'].indexOf(D.stage); panel.textContent = '';
+  const eb = el('div', { class: 'eyebrow' }); eb.append(el('span', {}, d.part ? `Part ${d.part} · ${PARTS[d.part]}` : PARTS[0]), el('span', { class: 'chip' }, 'Slides ' + d.slides)); if (d.core) eb.append(el('span', { class: 'chip core' }, '★ Core'));
+  const st = el('ol', { class: 'stepper' }); ['Predict', 'Test', 'Explain'].forEach((n, i) => { const li = el('li', {}, `${i + 1} · ${n}`); if (i === cur) li.dataset.on = '1'; else if (i < cur) li.dataset.done = '1'; st.append(li); });
+  panel.append(eb, el('h1', {}, `<small>${d.id}</small>${d.title}`), st);
+  if (D.stage === 'predict') renderPredict(p); else if (D.stage === 'test') renderTest(); else renderExplain(p);
+  panel.scrollTop = 0;
+}
+function renderPredict(p) {
+  const form = el('form', { class: 'block' }), go = el('button', { class: 'btn primary', type: 'button' }, 'Lock in my prediction'), row = el('div', { class: 'row' });
+  form.onsubmit = e => e.preventDefault(); go.disabled = D.picks.some(v => v === null);
+  demo.predict.forEach((q, i) => {
+    const fs = el('fieldset', { class: 'block', style: 'border:0;padding:0;margin:0;min-width:0' }), o = el('div', { class: 'opts' }), opts = val(q.a, p);
+    fs.append(el('legend', { class: 'q', style: 'padding:0;margin-bottom:8px' }, val(q.q, p)));
+    D.order[i].forEach(k => { const lb = el('label', { class: 'opt' }), inp = el('input', { type: 'radio', name: 'q' + i, id: `pr_${i}_${k}`, value: k }); inp.checked = D.picks[i] === k; inp.onchange = () => { D.picks[i] = k; go.disabled = D.picks.some(v => v === null); }; lb.append(inp, el('span', {}, opts[k])); o.append(lb); });
+    fs.append(o); form.append(fs);
+  });
+  go.onclick = () => { D.stage = 'test'; world.locked = false; $('#lock').hidden = true; toolbar.inert = false; renderPanel(); };
+  row.append(go); form.append(row);
+  panel.append(el('p', { class: 'lede' }, demo.intro), el('h2', {}, 'What do you think will happen?'), form);
+}
+function openExplain() { D.stage = 'explain'; S.done[demo.id] = true; store.set('done', S.done); if (world.vdg) world.vdg.mystery = false; renderPanel(); }
+function renderTest() {
+  const ol = el('ol', { class: 'steps', id: 'steps' }), box = el('div', { class: 'block', id: 'extra' }), row = el('div', { class: 'row' });
+  const go = el('button', { class: 'btn primary', type: 'button', id: 'toExplain' }, 'Explain what happened'), skip = el('button', { class: 'link', type: 'button' }, 'Stuck? Show the explanation');
+  demo.steps.forEach(() => { const li = el('li'); li.append(el('div')); ol.append(li); });
+  go.onclick = skip.onclick = openExplain; row.append(go, skip);
+  panel.append(el('h2', {}, 'Run the demo'), ol, box, row); refreshExtra(); updateSteps();
+}
+function askUI(s, i, p) {
+  const a = s.ask, box = el('div', { class: 'ask' }), o = el('div', { class: 'opts' }), opts = val(a.a, p, D.data, world), ok = val(a.ok, p, D.data, world);
+  const st = D.asks[i] || (D.asks[i] = { pick: null, order: a.fixed ? opts.map((_, k) => k) : shuf(opts.length) });
+  if (s.t) box.append(el('p', { class: 'q' }, val(a.q, p, D.data, world)));
+  st.order.forEach(k => {
+    const lb = el('label', { class: 'opt' }), inp = el('input', { type: 'radio', name: 'ask' + i, id: `ask_${i}_${k}` });
+    if (st.pick === k) { inp.checked = true; lb.classList.add(k === ok ? 'right' : 'wrong'); }
+    inp.disabled = D.done[i]; inp.onchange = () => { st.pick = k; if (k === ok) D.done[i] = true; updateSteps(); const e = document.getElementById(`ask_${i}_${k}`); if (e && !e.disabled) e.focus(); };
+    lb.append(inp, el('span', {}, opts[k])); o.append(lb);
+  });
+  box.append(o); if (st.pick !== null && st.pick !== ok) box.append(el('p', { class: 'hint' }, a.no || 'Not quite. Look at the bench again and try another answer.'));
+  return box;
+}
+function updateSteps() {
+  const ol = $('#steps'); if (!ol) return; const p = P(), now = D.done.findIndex((x, k) => !x && !demo.steps[k].opt);
+  demo.steps.forEach((s, i) => {
+    const li = ol.children[i], body = li.firstChild, isNow = i === now, hint = isNow && s.hint ? val(s.hint, world, D.data) : '';
+    const sig = [D.done[i], isNow, hint, D.asks[i] ? D.asks[i].pick : '', s.ask ? val(s.ask.q, p, D.data, world) : ''].join('|');
+    if (li._sig === sig) return; li._sig = sig; body.textContent = '';
+    li.toggleAttribute('data-done', D.done[i]); li.toggleAttribute('data-now', isNow);
+    body.append(el('span', {}, (s.t ? val(s.t, p, D.data, world) : val(s.ask.q, p, D.data, world)) + (s.opt ? '<span class="opt-tag">optional</span>' : '')));
+    if (D.done[i] && s.note) body.append(el('p', { class: 'note' }, val(s.note, p, D.data, world)));
+    if (hint) body.append(el('p', { class: 'hint' }, hint));
+    if (s.ask && (isNow || D.done[i])) body.append(askUI(s, i, p));
+  });
+  const go = $('#toExplain'); if (go) go.disabled = !demo.steps.every((s, k) => D.done[k] || s.opt);
+}
+function evalSteps() {
+  if (D.stage !== 'test') return; const st = demo.steps, now = D.done.findIndex((x, k) => !x && !st[k].opt);
+  if (now >= 0 && !st[now].ask && st[now].ok(world, D.data)) D.done[now] = true;
+  st.forEach((s, k) => { if (s.opt && !D.done[k] && s.ok(world, D.data)) D.done[k] = true; });
+  updateSteps();
+}
+function refreshExtra() {
+  const box = $('#extra'); if (!box || !demo.extra) return; const id = document.activeElement && document.activeElement.id;
+  box.textContent = ''; demo.extra(box, world, D.data); if (id) { const e = document.getElementById(id); if (e && box.contains(e)) e.focus(); }
+}
+function renderExplain(p) {
+  panel.append(el('h2', {}, 'How did your prediction do?'));
+  demo.predict.forEach((q, i) => {
+    const opts = val(q.a, p), ok = val(q.ok, p), right = D.picks[i] === ok, v = el('div', { class: 'verdict', 'data-ok': right ? 1 : 0 });
+    v.append(el('p', { class: 'mark' }, right ? '✓ Matched' : '✗ Did not match'), el('p', {}, val(q.q, p)));
+    if (!right && D.picks[i] !== null) v.append(el('p', {}, `<span style="color:var(--ink-2)">You said:</span> ${opts[D.picks[i]]}`));
+    v.append(el('p', {}, `<span style="color:var(--ink-2)">What happens:</span> <b>${opts[ok]}</b>`)); panel.append(v);
+  });
+  panel.append(el('h2', {}, 'What you see'), el('p', { style: 'margin:0' }, val(demo.see, p, D.data, world)), el('h2', {}, 'Why it happens'), el('div', { class: 'why' }, val(demo.why, p, D.data, world)));
+  if (demo.after) { const b = el('div', { class: 'block' }); demo.after(b, world, D.data); panel.append(b); }
+  if (demo.say) panel.append(el('p', { class: 'sayit' }, `<span>Say it</span>“${val(demo.say, p)}”`));
+  if (demo.safety) panel.append(el('p', { class: 'safety' }, `<b>In the real lab</b>${demo.safety}`));
+  const row = el('div', { class: 'row' }), i = DEMOS.indexOf(demo), again = el('button', { class: 'btn', type: 'button' }, 'Run it again');
+  if (i < DEMOS.length - 1) { const nx = el('button', { class: 'btn primary', type: 'button' }, `Next: ${DEMOS[i + 1].id} ${DEMOS[i + 1].title} →`); nx.onclick = () => startDemo(DEMOS[i + 1].id); row.append(nx); }
+  else row.append(el('p', { class: 'q' }, 'That was the last demo. Try Free play next.'));
+  again.onclick = resetDemo; row.append(again); panel.append(row);
+}
+
+/* ---------- toolbar ---------- */
+const mk = (cls, html, attrs = {}) => el('button', Object.assign({ class: cls, type: 'button' }, attrs), html);
+const field = (text, sel) => { const lb = el('label', { class: 'field' }, text + ' '); lb.append(sel); return lb; };
+const TOOLS = {
+  power() { const b = mk('btn power', '<span class="led"></span><span></span>', { id: 't_power', 'aria-pressed': 'false' }); b.onclick = () => { audio.ensure(); setPower(!world.vdg.on); }; return { el: b, sync() { const v = world.vdg; b.setAttribute('aria-pressed', v.on); b.lastChild.textContent = v.domeOff ? (v.on ? 'Belt: turning slowly' : 'Belt: stopped') : v.on ? 'Power: on' : 'Power: off'; } }; },
+  wand() { const b = mk('btn', 'Touch wand to dome', { id: 't_wand' }); b.onclick = () => { audio.ensure(); const wd = find(Wand); if (wd) wd.touchDome(); }; return { el: b }; },
+  charges() { const b = mk('btn', 'Show charges', { id: 't_charges', 'aria-pressed': 'false' }); b.onclick = () => { S.charges = !S.charges; }; return { el: b, sync() { b.setAttribute('aria-pressed', S.charges); } }; },
+  lights() { const b = mk('btn', '', { id: 't_lights' }); b.onclick = () => { S.lights = !S.lights; }; return { el: b, sync() { b.textContent = S.lights ? 'Lights: on' : 'Lights: off'; b.setAttribute('aria-pressed', !S.lights); } }; },
+  finger() { const b = mk('btn', 'Finger on knob', { id: 't_finger', 'aria-pressed': 'false' }); b.onclick = () => { const s = find(Scope); s.finger = !s.finger; }; return { el: b, sync() { b.setAttribute('aria-pressed', find(Scope).finger); } }; },
+  hand() { const b = mk('btn', 'Hand on dome', { id: 't_hand', 'aria-pressed': 'false' }); b.onclick = () => { audio.ensure(); const v = find(Volunteer); v.setHand(!v.handOn); }; return { el: b, sync() { b.setAttribute('aria-pressed', find(Volunteer).handOn); } }; },
+  stool() { const b = mk('btn', '', { id: 't_stool' }); b.onclick = () => { const v = find(Volunteer); v.setStool(!v.stool); }; return { el: b, sync() { b.textContent = 'Standing on: ' + (find(Volunteer).stool ? 'stool' : 'floor'); } }; },
+  poke() { const b = mk('btn', 'Touch tin with finger', { id: 't_poke' }); b.onclick = () => { audio.ensure(); find(Electrophorus).touch(); }; return { el: b }; },
+  open() {
+    const b = mk('btn', '', { id: 't_open' });
+    b.onclick = () => { const v = world.vdg; if (!v.domeOff && Math.abs(v.Q) > 0.05) { toast('Ground the dome with the wand before you lift it off.'); return; } v.domeOff = !v.domeOff; setPower(false); if (v.domeOff) S.charges = true; };
+    return { el: b, sync() { b.textContent = world.vdg.domeOff ? 'Put the dome back' : 'Lift the dome off'; b.setAttribute('aria-pressed', world.vdg.domeOff); } };
+  },
+  roller() {
+    const s = el('select', { id: 't_roller' }); ['Nylon', 'Glass', 'Vinyl (PVC)', 'Teflon'].forEach(m => s.append(new Option(m, m))); s.value = world.vdg.roller;
+    s.onchange = () => { const v = world.vdg; v.roller = s.value; v.sign = sgn(rubCharge('Rubber', v.roller)) || -1; v.Q = 0; setPower(false); demo.steps.forEach((x, i) => { if (x.ask && !D.done[i]) delete D.asks[i]; }); D.data.dirty = true; };
+    return { el: field('Lower roller', s) };
+  },
+  pair() {
+    const box = el('span', { class: 'row' }), so = el('select', { id: 't_obj' }), sc = el('select', { id: 't_cloth' }), d = D.data;
+    Object.keys(OBJ).forEach(k => so.append(new Option(OBJ[k].name, k))); CLOTHS.forEach(k => sc.append(new Option(k.toLowerCase(), k))); so.value = d.obj; sc.value = d.cl;
+    so.onchange = sc.onchange = () => { d.obj = so.value; d.cl = sc.value; demo.fresh(world, d); };
+    box.append(field('Object', so), field('Cloth', sc)); return { el: box };
+  },
+  hang() {
+    const b = mk('btn', '', { id: 't_hang' }), d = D.data;
+    b.onclick = () => { if (d.hang === 'object' && Math.abs(d.h.q) < 0.3) { toast('Rub the object on the cloth first.'); return; } demo.setHang(world, d, d.hang === 'object' ? 'cloth' : 'object'); };
+    return { el: b, sync() { b.textContent = d.hang === 'cloth' ? 'Hang the object' : 'Hang the cloth'; } };
+  },
+  reset() { const b = mk('btn ghost', 'Reset', { id: 't_reset' }); b.onclick = resetDemo; return { el: b }; }
+};
+function renderToolbar() {
+  toolbar.textContent = ''; tools = [];
+  const list = S.mode === 'free' ? ['power', 'wand', 'charges', 'lights', ...(free.tray === 'scope' ? ['finger'] : [])] : demo.tools;
+  for (const id of [...list, 'reset']) { if ((id === 'power' || id === 'wand') && !world.vdg) continue; const t = TOOLS[id](); tools.push(t); toolbar.append(t.el); }
+  toolbar.inert = !!world.locked;
+}
+
+/* ---------- pointer input ---------- */
+const toWorld = e => { const r = cv.getBoundingClientRect(), k = world && world.cam; let x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H; if (k) { x = x / k.s + k.x; y = y / k.s + k.y; } return [x, y]; };
+cv.addEventListener('pointerdown', e => {
+  if (!world || world.locked) return; const [x, y] = toWorld(e); audio.ensure();
+  if (world.vdg && world.vdg.hitSwitch(x, y)) { setPower(!world.vdg.on); return; }
+  for (let i = world.props.length - 1; i >= 0; i--) { const h = world.props[i].pick(x, y); if (h) { drag = h; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } h.move(x, y); cv.style.cursor = 'grabbing'; e.preventDefault(); break; } }
+});
+cv.addEventListener('pointermove', e => {
+  if (!world) return; const [x, y] = toWorld(e);
+  if (drag) { drag.move(x, y); return; }
+  if (world.locked) { cv.style.cursor = 'default'; return; }
+  let cur = world.vdg && world.vdg.hitSwitch(x, y) ? 'pointer' : 'default';
+  if (cur === 'default') for (let i = world.props.length - 1; i >= 0; i--) if (world.props[i].pick(x, y, true)) { cur = 'grab'; break; }
+  cv.style.cursor = cur;
+});
+const drop = () => { if (drag) { drag.end(); drag = null; cv.style.cursor = 'grab'; } };
+cv.addEventListener('pointerup', drop); cv.addEventListener('pointercancel', drop);
+
+/* ---------- main loop ---------- */
+function resize() { const r = wrap.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2); cv.width = Math.max(2, Math.round(r.width * dpr)); cv.height = Math.max(2, Math.round(r.width * dpr * H / W)); scale = cv.width / W; }
+if (window.ResizeObserver) new ResizeObserver(resize).observe(wrap); else window.addEventListener('resize', resize);
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.034, Math.max(0, (now - last) / 1000)); last = now;
+  if (world) {
+    world.update(dt);
+    if (S.mode === 'guided') {
+      if (demo.tick && D.stage !== 'predict') demo.tick(world, D.data, dt);
+      if (D.data.dirty) { D.data.dirty = false; refreshExtra(); }
+      evalSteps();
+    }
+    ctx.setTransform(scale, 0, 0, scale, 0, 0); world.draw(ctx);
+    for (const t of tools) if (t.sync) t.sync();
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- wiring ---------- */
+$('#modeGuided').onclick = () => setMode('guided'); $('#modeFree').onclick = () => setMode('free');
+$('#polNeg').onclick = () => setPolarity(-1); $('#polPos').onclick = () => setPolarity(1);
+$('#soundBtn').onclick = () => { S.sound = !S.sound; if (S.sound) { audio.ensure(); audio.setHum(!!world && !!world.vdg && world.vdg.on); } else audio.setHum(false); renderHeader(); };
+$('#demoPick').onclick = () => { renderMenu(); $('#menu').showModal(); };
+$('#menuClose').onclick = () => $('#menu').close();
+$('#menu').addEventListener('click', e => { if (e.target === $('#menu')) $('#menu').close(); });
+const stepDemo = n => { const i = DEMOS.indexOf(demo) + n; if (i >= 0 && i < DEMOS.length) startDemo(DEMOS[i].id); };
+$('#prevDemo').onclick = () => stepDemo(-1); $('#nextDemo').onclick = () => stepDemo(1);
+
+/* test hook: lets a script drive the bench (used for automated checks, not by the page itself) */
+window.VDG = {
+  get world() { return world; }, get demo() { return demo; }, get state() { return D; }, settings: S, start: startDemo, mode: setMode, classes: { Wand, Hanger, RubPad, Rod, Tube, Probe, Scope, RollCan, TwoCans, Volunteer, TinStack, RiceCup, PaperBits, HandBalloon, Faucet, Electrophorus, Strands },
+  begin() { if (D.stage === 'predict') { D.picks = demo.predict.map(() => 0); D.stage = 'test'; world.locked = false; $('#lock').hidden = true; toolbar.inert = false; renderPanel(); } },
+  run(sec) { for (let t = 0; t < sec; t += 1 / 60) { world.update(1 / 60); if (S.mode === 'guided') { if (demo.tick) demo.tick(world, D.data, 1 / 60); if (D.data.dirty) { D.data.dirty = false; refreshExtra(); } evalSteps(); } } return S.mode === 'guided' ? D.done.slice() : null; }
+};
+
+resize();
+const hash = decodeURIComponent(location.hash.slice(1));
+if (hash === 'free') setMode('free'); else startDemo(DEMOS.some(d => d.id === hash) ? hash : store.get('demo', '0'));
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
