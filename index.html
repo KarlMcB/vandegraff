@@ -44,6 +44,9 @@ button{cursor:pointer}
 .seg button[disabled]{opacity:.4;cursor:not-allowed}
 .demo-nav{display:flex;align-items:center;gap:4px;flex:1 1 260px;min-width:0}
 .demo-nav .pick{flex:1;min-width:0;text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:6px 12px;font:600 18px/1.2 var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.demo-nav .pick{display:flex;align-items:center;gap:8px}
+.demo-nav .pick .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.demo-nav .pick .car{color:var(--ink-2);flex:none}
 .demo-nav .pick b{color:var(--ink-2);font-weight:600;margin-right:6px}
 .icon-btn{border:1px solid var(--line);background:var(--surface-2);border-radius:9px;width:36px;height:36px;font:700 20px/1 var(--f-display);flex:none}
 .settings{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -115,6 +118,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .verdict[data-ok="0"] .mark{color:var(--pos)}
 .why p{margin:0 0 10px}
 .why p:last-child{margin-bottom:0}
+details.why summary{cursor:pointer;font:700 20px/1.2 var(--f-display);letter-spacing:.02em}
+details.why[open] summary{margin-bottom:10px}
 .sayit{margin:0;padding:10px 12px;border-left:4px solid var(--accent);background:var(--surface-2);border-radius:0 9px 9px 0;font-weight:700}
 .sayit span{display:block;font:600 13px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);margin-bottom:4px}
 .safety{margin:0;padding:10px 12px;border:1px dashed var(--warn);border-radius:9px;color:var(--ink)}
@@ -170,9 +175,9 @@ dialog::backdrop{background:rgba(8,12,18,.6)}
     <button type="button" id="modeFree" aria-pressed="false">Free play</button>
   </div>
   <div class="demo-nav" id="demoNav">
-    <button type="button" class="icon-btn" id="prevDemo" aria-label="Previous demo">‹</button>
+    <button type="button" class="icon-btn" id="prevDemo" aria-label="Previous">‹</button>
     <button type="button" class="pick" id="demoPick" aria-haspopup="dialog"></button>
-    <button type="button" class="icon-btn" id="nextDemo" aria-label="Next demo">›</button>
+    <button type="button" class="icon-btn" id="nextDemo" aria-label="Next">›</button>
   </div>
   <div class="settings">
     <span class="lbl" id="polLbl">Dome charges</span>
@@ -1336,6 +1341,7 @@ const DEMOS = [
 /* ------------------------------ Demo 0 ------------------------------ */
 { id: '0', part: 0, title: 'Polarity Check', core: true, slides: '6, 10, 12', mystery: true,
   intro: 'This machine is a mystery. Its dome might charge negative or positive, depending on what its belt and rollers are made of. Use a balloon you know is negative to find out.',
+  freeIntro: 'Use a balloon you know is negative to check which way a dome charges. In free play nothing is hidden: set <b>Dome charges</b> at the top to − or + and see how the balloon responds to each.',
   predict: [
     { q: 'A rubber balloon rubbed on hair is negative. If the dome is also negative, what will the balloon do when it hangs near the dome?', a: ['Swing away from the dome', 'Swing toward the dome', 'Hang straight down'], ok: 0 },
     { q: 'Suppose the balloon swings toward the dome instead. Is that proof the dome is positive?', a: ['Not on its own. A charged dome also attracts a neutral balloon, so the balloon has to be well charged', 'Yes. Attraction always means opposite charges', 'No. It means the dome is neutral'], ok: 0 }
@@ -1821,7 +1827,9 @@ const FREE = {
   tray: [['none', 'Nothing'], ['can', 'Rolling soda can'], ['cans', 'Two cans on cups'], ['scope', 'Electroscope']],
   tools: [['balloon', 'Balloon + hair'], ['ball', 'Foil-ball pendulum'], ['pvc', 'PVC pipe'], ['metal', 'Metal rod'], ['probe', 'Metal sphere'], ['bits', 'Paper bits'], ['tube', 'Fluorescent tube']]
 };
-const free = Object.assign({ top: 'streamers', tray: 'none', tools: ['balloon', 'ball'] }, store.get('free', {}));
+const free = Object.assign({ sim: 'custom', top: 'streamers', tray: 'none', tools: ['balloon', 'ball'] }, store.get('free', {}));
+/* Free play shows either the custom bench or the bench of one demo with nothing locked */
+const simFree = () => S.mode === 'free' && free.sim !== 'custom';
 function buildFree(keep) {
   const shelf = { can: { x1: 396, x2: 930, y: 234 }, cans: { x1: 404, x2: 950, y: 292, label: 'plastic table (insulator)' }, scope: { x1: 356, x2: 950, y: 387, label: 'stand' } }[free.tray] || null;
   const w = world = new World({ shelf }), has = t => free.tools.includes(t);
@@ -1837,9 +1845,27 @@ function buildFree(keep) {
   if (has('ball')) w.add(new Hanger(w, { stand: 1, px: 740, py: 85, L: 130, r: 10, kind: 'foil', cond: true, polz: 0.7, leak: 3, canRub: false, material: 'Aluminum' }));
   if (has('balloon')) { w.add(new RubPad(w, { x: 860, y: 420, wd: 110, ht: 70 })); w.add(new Hanger(w, { px: 600, py: 36, showGap: true })); }
 }
+function openMenu() { renderMenu(); $('#menu').showModal(); }
+function renderFreeSim() {
+  const p = P(), d = demo, eb = el('div', { class: 'eyebrow' }), row = el('div', { class: 'row' });
+  const pick = el('button', { class: 'btn primary', type: 'button' }, 'Choose another simulation'), guided = el('button', { class: 'btn', type: 'button' }, 'Run it as a guided demo');
+  eb.append(el('span', {}, 'Free play · ' + (d.part ? `Part ${d.part} · ${PARTS[d.part]}` : PARTS[0])), el('span', { class: 'chip' }, 'Slides ' + d.slides));
+  pick.onclick = openMenu; guided.onclick = () => setMode('guided'); row.append(pick, guided);
+  panel.append(eb, el('h1', {}, `<small>${d.id}</small>${d.title}`), el('p', { class: 'lede' }, d.freeIntro || d.intro),
+    el('p', { style: 'margin:0' }, 'This is the bench for this demonstration with nothing locked: no prediction to make and no checklist to follow.'), row,
+    el('h2', {}, 'Things to try'), el('ul', { class: 'try' }, d.steps.filter(x => x.t && !x.ask).map(x => `<li>${val(x.t, p, D.data, world)}</li>`).join('')));
+  if (d.extra) { panel.append(el('div', { class: 'block', id: 'extra' })); refreshExtra(); }
+  panel.append(el('h2', {}, 'What you should see'), el('p', { style: 'margin:0' }, val(d.see, p, D.data, world)));
+  const det = el('details', { class: 'why' }), body = el('div'), data = D.data, w = world; det.append(el('summary', {}, 'Why it happens'), body);
+  det.addEventListener('toggle', () => { if (det.open && det.isConnected) body.innerHTML = val(d.why, pol(w.vdg ? w.vdg.sign : S.polarity), data, w); }); panel.append(det);
+  if (d.safety) panel.append(el('p', { class: 'safety' }, `<b>In the real lab</b>${d.safety}`));
+  panel.scrollTop = 0;
+}
 function renderFree() {
-  panel.textContent = '';
-  panel.append(el('div', { class: 'eyebrow' }, '<span>Free play</span>'), el('h1', {}, 'Your bench, your experiment'), el('p', { class: 'lede' }, 'Choose what goes on the bench, then drag things around. Everything behaves the way it does in the guided demos.'));
+  panel.textContent = ''; if (simFree()) return renderFreeSim();
+  const pick = el('button', { class: 'btn primary', type: 'button' }, 'Choose a simulation'), row = el('div', { class: 'row' }); pick.onclick = openMenu; row.append(pick);
+  panel.append(el('div', { class: 'eyebrow' }, '<span>Free play · Custom bench</span>'), el('h1', {}, 'Your bench, your experiment'),
+    el('p', { class: 'lede' }, 'Choose what goes on the bench, then drag things around. Or load the bench from any of the 21 demonstrations, with nothing locked.'), row);
   const tray = el('div', { class: 'tray' });
   const group = (legend, key, multi) => {
     const fs = el('fieldset'); fs.append(el('legend', {}, legend));
@@ -1866,10 +1892,11 @@ function renderFree() {
 function build(keepCharge) {
   const keep = keepCharge && world && world.vdg ? { Q: world.vdg.Q, on: world.vdg.on } : null; if (!keep) setPower(false);
   S.lights = true; drag = null;
-  if (S.mode === 'free') buildFree(keep);
+  if (S.mode === 'free' && !simFree()) buildFree(keep);
   else {
-    const cfg = Object.assign({}, demo.world); if (demo.mystery) { cfg.mystery = D.stage !== 'explain'; cfg.sign = D.sign; }
+    const guided = S.mode === 'guided', cfg = Object.assign({}, demo.world); if (demo.mystery && guided) { cfg.mystery = D.stage !== 'explain'; cfg.sign = D.sign; }
     world = new World(cfg); D.data = {}; D.done = demo.steps.map(() => false); D.asks = {}; demo.setup(world, D.data); world.locked = D.stage === 'predict';
+    if (!guided) for (const p of world.props) p.hide = false;   // nothing is kept secret in free play
   }
   $('#lock').hidden = !world.locked; renderToolbar();
 }
@@ -1879,31 +1906,49 @@ function startDemo(id) {
   S.charges = !!demo.chargesOn; build(); renderHeader(); renderPanel();
 }
 function resetDemo() { if (S.mode === 'guided' && D.stage === 'explain') D.stage = 'test'; build(); renderPanel(); }
-function setMode(m) {
-  S.mode = m; $('#modeGuided').setAttribute('aria-pressed', m === 'guided'); $('#modeFree').setAttribute('aria-pressed', m === 'free'); $('#demoNav').hidden = m === 'free';
+/* Free play on `sim`: a demo id, or 'custom' for the build-your-own bench */
+function startFree(sim) {
+  free.sim = DEMOS.some(d => d.id === sim) ? sim : 'custom'; store.set('free', free); setPower(false); world = null;
+  if (free.sim !== 'custom') { demo = DEMOS.find(d => d.id === free.sim); D = { stage: 'free', picks: [], order: [], sign: S.polarity }; }
+  S.charges = simFree() && !!demo.chargesOn;
+  try { history.replaceState(null, '', '#free' + (simFree() ? '-' + demo.id : '')); } catch (e) { /* file:// in some browsers */ }
+  build(); renderHeader(); renderPanel();
+}
+function setMode(m, sim) {
+  const was = S.mode; S.mode = m; $('#modeGuided').setAttribute('aria-pressed', m === 'guided'); $('#modeFree').setAttribute('aria-pressed', m === 'free');
   setPower(false); world = null;
-  if (m === 'free') { S.charges = false; try { history.replaceState(null, '', '#free'); } catch (e) { /* ignore */ } build(); renderHeader(); renderPanel(); } else startDemo(demo ? demo.id : store.get('demo', '0'));
+  if (m === 'free') startFree(sim !== undefined ? sim : was === 'guided' && demo ? demo.id : free.sim);   // switching from a guided demo keeps its bench
+  else startDemo(demo ? demo.id : store.get('demo', '0'));
 }
 function setPolarity(s) {
   S.polarity = s; store.set('polarity', s); renderHeader();
-  if (S.mode === 'free') build(); else if (!demo.mystery && !demo.ownSign) { build(); renderPanel(); }
+  if (S.mode === 'free') { if (!(simFree() && demo.ownSign)) { build(); renderPanel(); } }
+  else if (!demo.mystery && !demo.ownSign) { build(); renderPanel(); }
 }
 
 /* ---------- header and demo menu ---------- */
 function renderHeader() {
-  $('#demoPick').innerHTML = demo ? `<b>Demo ${demo.id}</b>${demo.title}` : '';
-  const lock = S.mode === 'guided' && demo && (demo.mystery || demo.ownSign);
+  const isFree = S.mode === 'free', name = isFree ? (simFree() ? `<b>Free play ${demo.id}</b> ${demo.title}` : '<b>Free play</b> Custom bench') : demo ? `<b>Demo ${demo.id}</b> ${demo.title}` : '';
+  $('#demoPick').innerHTML = `<span class="t">${name}</span><span class="car" aria-hidden="true">▾</span>`;
+  $('#demoPick').setAttribute('aria-label', (isFree ? 'Choose a simulation for free play. Now: ' : 'Choose a demo. Now: ') + $('#demoPick').textContent.replace('▾', ''));
+  const lock = !!demo && (isFree ? simFree() && !!demo.ownSign : !!(demo.mystery || demo.ownSign));
   for (const b of [$('#polNeg'), $('#polPos')]) { b.setAttribute('aria-pressed', !lock && +b.dataset.v === S.polarity); b.disabled = !!lock; }
-  $('#polLbl').textContent = lock ? (demo.mystery ? 'Dome charges: a mystery' : 'Dome charges: set by the roller') : 'Dome charges';
+  $('#polLbl').textContent = lock ? (demo.mystery && !isFree ? 'Dome charges: a mystery' : 'Dome charges: set by the roller') : 'Dome charges';
   $('#soundBtn').setAttribute('aria-pressed', S.sound); $('#soundBtn').textContent = S.sound ? 'Sound: on' : 'Sound: off';
 }
 function renderMenu() {
-  const body = $('#menuBody'); body.textContent = '';
+  const body = $('#menuBody'), isFree = S.mode === 'free'; body.textContent = '';
+  $('#menuTitle').textContent = isFree ? 'Choose a simulation for free play' : 'Demos at a glance';
+  const item = (html, current, go) => { const b = el('button', { type: 'button', 'aria-current': current ? 'true' : null }, html), li = el('li'); b.onclick = () => { $('#menu').close(); go(); }; li.append(b); return li; };
+  if (isFree) {
+    const sec = el('section', { class: 'part' }), ul = el('ul'), li = item('<span class="n">✦</span><span>Custom bench: pick your own equipment</span><span class="s"></span>', free.sim === 'custom', () => startFree('custom'));
+    li.style.gridColumn = '1 / -1'; ul.append(li); sec.append(el('h3', {}, 'Build your own'), ul); body.append(sec);
+  }
   PARTS.forEach((name, pi) => {
     const sec = el('section', { class: 'part' }), ul = el('ul'); sec.append(el('h3', {}, pi ? `Part ${pi} · ${name}` : name));
     DEMOS.filter(d => d.part === pi).forEach(d => {
-      const b = el('button', { type: 'button', 'aria-current': d === demo ? 'true' : null }, `<span class="n">${d.id}</span><span>${d.title}</span><span class="s"${S.done[d.id] ? ' data-done' : ''}>${S.done[d.id] ? '✓ done' : d.core ? '★ core' : ''}</span>`);
-      b.onclick = () => { $('#menu').close(); startDemo(d.id); }; const li = el('li'); li.append(b); ul.append(li);
+      const done = !isFree && S.done[d.id];
+      ul.append(item(`<span class="n">${d.id}</span><span>${d.title}</span><span class="s"${done ? ' data-done' : ''}>${done ? '✓ done' : d.core ? '★ core' : ''}</span>`, isFree ? free.sim === d.id : d === demo, () => isFree ? startFree(d.id) : startDemo(d.id)));
     });
     sec.append(ul); body.append(sec);
   });
@@ -2037,7 +2082,8 @@ const TOOLS = {
 };
 function renderToolbar() {
   toolbar.textContent = ''; tools = [];
-  const list = S.mode === 'free' ? ['power', 'wand', 'charges', 'lights', ...(free.tray === 'scope' ? ['finger'] : [])] : demo.tools;
+  const list = S.mode === 'free' && !simFree() ? ['power', 'wand', 'charges', 'lights', ...(free.tray === 'scope' ? ['finger'] : [])]
+    : simFree() && world.vdg && !demo.tools.includes('lights') ? [...demo.tools, 'lights'] : demo.tools;
   for (const id of [...list, 'reset']) { if ((id === 'power' || id === 'wand') && !world.vdg) continue; const t = TOOLS[id](); tools.push(t); toolbar.append(t.el); }
   toolbar.inert = !!world.locked;
 }
@@ -2068,7 +2114,7 @@ function frame(now) {
   const dt = Math.min(0.034, Math.max(0, (now - last) / 1000)); last = now;
   if (world) {
     world.update(dt);
-    if (S.mode === 'guided') {
+    if (S.mode === 'guided' || simFree()) {
       if (demo.tick && D.stage !== 'predict') demo.tick(world, D.data, dt);
       if (D.data.dirty) { D.data.dirty = false; refreshExtra(); }
       evalSteps();
@@ -2083,22 +2129,25 @@ function frame(now) {
 $('#modeGuided').onclick = () => setMode('guided'); $('#modeFree').onclick = () => setMode('free');
 $('#polNeg').onclick = () => setPolarity(-1); $('#polPos').onclick = () => setPolarity(1);
 $('#soundBtn').onclick = () => { S.sound = !S.sound; if (S.sound) { audio.ensure(); audio.setHum(!!world && !!world.vdg && world.vdg.on); } else audio.setHum(false); renderHeader(); };
-$('#demoPick').onclick = () => { renderMenu(); $('#menu').showModal(); };
+$('#demoPick').onclick = openMenu;
 $('#menuClose').onclick = () => $('#menu').close();
 $('#menu').addEventListener('click', e => { if (e.target === $('#menu')) $('#menu').close(); });
-const stepDemo = n => { const i = DEMOS.indexOf(demo) + n; if (i >= 0 && i < DEMOS.length) startDemo(DEMOS[i].id); };
+const stepDemo = n => {
+  if (S.mode === 'free') { const ids = ['custom', ...DEMOS.map(d => d.id)], i = ids.indexOf(free.sim) + n; if (i >= 0 && i < ids.length) startFree(ids[i]); return; }
+  const i = DEMOS.indexOf(demo) + n; if (i >= 0 && i < DEMOS.length) startDemo(DEMOS[i].id);
+};
 $('#prevDemo').onclick = () => stepDemo(-1); $('#nextDemo').onclick = () => stepDemo(1);
 
 /* test hook: lets a script drive the bench (used for automated checks, not by the page itself) */
 window.VDG = {
   get world() { return world; }, get demo() { return demo; }, get state() { return D; }, settings: S, start: startDemo, mode: setMode, classes: { Wand, Hanger, RubPad, Rod, Tube, Probe, Scope, RollCan, TwoCans, Volunteer, TinStack, RiceCup, PaperBits, HandBalloon, Faucet, Electrophorus, Strands },
   begin() { if (D.stage === 'predict') { D.picks = demo.predict.map(() => 0); D.stage = 'test'; world.locked = false; $('#lock').hidden = true; toolbar.inert = false; renderPanel(); } },
-  run(sec) { for (let t = 0; t < sec; t += 1 / 60) { world.update(1 / 60); if (S.mode === 'guided') { if (demo.tick) demo.tick(world, D.data, 1 / 60); if (D.data.dirty) { D.data.dirty = false; refreshExtra(); } evalSteps(); } } return S.mode === 'guided' ? D.done.slice() : null; }
+  run(sec) { for (let t = 0; t < sec; t += 1 / 60) { world.update(1 / 60); if (S.mode === 'guided' || simFree()) { if (demo.tick) demo.tick(world, D.data, 1 / 60); if (D.data.dirty) { D.data.dirty = false; refreshExtra(); } evalSteps(); } } return S.mode === 'guided' ? D.done.slice() : null; }
 };
 
 resize();
 const hash = decodeURIComponent(location.hash.slice(1));
-if (hash === 'free') setMode('free'); else startDemo(DEMOS.some(d => d.id === hash) ? hash : store.get('demo', '0'));
+if (hash === 'free' || hash.startsWith('free-')) setMode('free', hash.slice(5) || 'custom'); else startDemo(DEMOS.some(d => d.id === hash) ? hash : store.get('demo', '0'));
 requestAnimationFrame(frame);
 })();
 </script>

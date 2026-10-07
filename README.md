@@ -1,6 +1,6 @@
 # Van de Graaff Lab
 
-A Van de Graaff generator simulator for high school physics. It runs the 21 demonstrations from the *Van de Graaff Demonstrations* teacher guide (Demo 0 through 8.3) and adds a free-play bench.
+A Van de Graaff generator simulator for high school physics. It runs the 21 demonstrations from the *Van de Graaff Demonstrations* teacher guide (Demo 0 through 8.3), each as a guided demo or in free play.
 
 Everything is in one file, `index.html`. There is nothing to install or build.
 
@@ -22,7 +22,13 @@ Controls worth knowing about:
 - **Sound** is off by default.
 - Progress (which demos are done) is kept in the browser's local storage on that device.
 
-You can link straight to a demo by adding its number to the address, for example `index.html#5.2`, or to free play with `index.html#free`.
+**Free play** has no predictions and no checklist. The menu button in the header (the one showing the current simulation, with a ▾) lists every simulation: the 21 demo benches, each with nothing locked, plus a custom bench where you pick the equipment yourself. Switching from a guided demo to Free play keeps the bench you were on, and "Run it as a guided demo" goes back.
+
+You can link straight to a simulation by adding to the address:
+
+- `index.html#5.2` opens Demo 5.2 as a guided demo
+- `index.html#free-5.2` opens the same bench in free play
+- `index.html#free` opens the custom bench
 
 ## Demos
 
