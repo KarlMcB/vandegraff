@@ -1126,9 +1126,12 @@ class Volunteer extends Prop {
     this.handOn = on;
   }
   setStool(on) {
-    if (this.handOn) { toast('Take the hand off the dome before changing where the volunteer stands.'); return; }
-    if (!on && Math.abs(this.q) > 0.15) { this.w.spark(this.fx - 6, BENCH - 26, this.fx - 2, BENCH - 1, 0.6); toast('Zap! Stepping down while still charged sends the charge to the ground through your feet.'); }
-    this.stool = on; if (!on) this.q = 0;
+    if (on === this.stool) return;
+    if (!on && Math.abs(this.q) > 0.15) {
+      this.w.spark(this.fx - 6, BENCH - 26, this.fx - 2, BENCH - 1, 0.6);
+      toast(this.handOn ? 'Zap! On the floor the charge has a path to the ground, so it drains away through the volunteer.' : 'Zap! Stepping down while still charged sends the charge to the ground through the feet.');
+    }
+    this.stool = on; if (!on && !this.handOn) this.q = 0;
   }
   update(dt) {
     const w = this.w, v = w.vdg, tl = this.stool ? 44 : 0; this.arm = ease(this.arm, this.handOn ? 1 : 0, 9, dt);
@@ -1487,7 +1490,7 @@ const DEMOS = [
     { t: 'Switch the machine on and wait.', ok: (w, d) => d.up, note: 'The hair rises and spreads out, strand by strand.' },
     { t: 'Switch the machine off. Touch the dome with the discharge wand while the hand is still on it.', ok: (w, d) => d.gr },
     { t: 'Only now, take the hand off the dome.', ok: (w, d) => d.off },
-    { t: 'Change to <b>Standing on: floor</b>, put the hand back on and run the machine again.', ok: (w, d) => d.fl > 3, opt: true, note: 'The hair barely moves.' }
+    { t: 'Now choose <b>Floor</b> so the volunteer stands on the ground. Put the hand on the dome and run the machine again.', ok: (w, d) => d.fl > 3, opt: true, note: 'The hair barely moves: the charge flows through the volunteer into the ground.' }
   ],
   see: 'The volunteer’s hair rises and spreads out strand by strand. Standing on the floor, almost nothing happens.',
   why: () => '<p>The human body is a conductor (slide 20), so the excess charge spreads from the dome across the whole body, including every hair (slide 16).</p><p>Each hair has the same type of charge, so the hairs repel each other and the head.</p><p>On the floor, the charge flows away into the ground instead, just like touching a charged conductor (slide 21). The stool is an insulator, which is what keeps the charge on the volunteer.</p>',
@@ -2002,7 +2005,12 @@ const TOOLS = {
   lights() { const b = mk('btn', '', { id: 't_lights' }); b.onclick = () => { S.lights = !S.lights; }; return { el: b, sync() { b.textContent = S.lights ? 'Lights: on' : 'Lights: off'; b.setAttribute('aria-pressed', !S.lights); } }; },
   finger() { const b = mk('btn', 'Finger on knob', { id: 't_finger', 'aria-pressed': 'false' }); b.onclick = () => { const s = find(Scope); s.finger = !s.finger; }; return { el: b, sync() { b.setAttribute('aria-pressed', find(Scope).finger); } }; },
   hand() { const b = mk('btn', 'Hand on dome', { id: 't_hand', 'aria-pressed': 'false' }); b.onclick = () => { audio.ensure(); const v = find(Volunteer); v.setHand(!v.handOn); }; return { el: b, sync() { b.setAttribute('aria-pressed', find(Volunteer).handOn); } }; },
-  stool() { const b = mk('btn', '', { id: 't_stool' }); b.onclick = () => { const v = find(Volunteer); v.setStool(!v.stool); }; return { el: b, sync() { b.textContent = 'Standing on: ' + (find(Volunteer).stool ? 'stool' : 'floor'); } }; },
+  stool() {
+    const box = el('span', { class: 'field' }, 'Volunteer stands on '), seg = el('span', { class: 'seg', role: 'group', 'aria-label': 'Volunteer stands on' });
+    const opt = (name, on) => { const b = el('button', { type: 'button', id: 't_stand_' + name.toLowerCase(), 'aria-pressed': 'false' }, name); b.onclick = () => { audio.ensure(); find(Volunteer).setStool(on); }; seg.append(b); return b; };
+    const a = opt('Stool', true), f = opt('Floor', false); box.append(seg);
+    return { el: box, sync() { const st = find(Volunteer).stool; a.setAttribute('aria-pressed', st); f.setAttribute('aria-pressed', !st); } };
+  },
   poke() { const b = mk('btn', 'Touch tin with finger', { id: 't_poke' }); b.onclick = () => { audio.ensure(); find(Electrophorus).touch(); }; return { el: b }; },
   open() {
     const b = mk('btn', '', { id: 't_open' });
