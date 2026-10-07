@@ -634,7 +634,7 @@ class Hanger extends Prop {
   constructor(w, o = {}) {
     super(w);
     Object.assign(this, { px: 640, py: 150, L: 110, th: 0, om: 0, q: 0, r: 30, kind: 'balloon', material: 'Rubber', label: '', color: '#e5564b', cond: false, polz: 0.45, kc: 2600, leak: 0, stand: 0, canRub: true, hide: false, showGap: false, name: '' }, o);
-    this.held = false; this.rub = 0; this.q0 = this.q; this.rubMat = null; this.rubT = 0; this.gap = 999; this.dAvg = 0; this.seen = null; this.touches = 0; this.groundHits = 0;
+    this.held = false; this.gripHeld = false; this.rub = 0; this.q0 = this.q; this.rubMat = null; this.rubT = 0; this.gap = 999; this.dAvg = 0; this.seen = null; this.touches = 0; this.groundHits = 0;
   }
   get bx() { return this.px + this.L * Math.sin(this.th); }
   get by() { return this.py + this.L * Math.cos(this.th); }
@@ -695,7 +695,7 @@ class Hanger extends Prop {
       const ox = this.bx - x, oy = this.by - y;
       return { move(mx, my) { let nx = mx + ox, ny = my + oy; [nx, ny] = pushOut(w, nx, ny, self.r * 0.96); self.px = clamp(nx, 24, (w.wallX || W) - 24); self.py = clamp(ny, self.r + 4, BENCH - self.r - 2) - self.L; self.th = 0; self.om = 0; self.held = true; }, end() { self.held = false; } };
     }
-    if (hyp(x - this.px, y - this.py) < 20) { const ox = this.px - x, oy = this.py - y; return { move(mx, my) { self.px = clamp(mx + ox, 20, W - 20); self.py = clamp(my + oy, -40, BENCH - self.L - self.r - 3); }, end() {} }; }
+    if (hyp(x - this.px, y - this.py) < 20) { const ox = this.px - x, oy = this.py - y; return { move(mx, my) { self.px = clamp(mx + ox, 20, W - 20); self.py = clamp(my + oy, -40, BENCH - self.L - self.r - 3); self.gripHeld = true; }, end() { self.gripHeld = false; } }; }
     return null;
   }
   draw(c) {
@@ -753,7 +753,8 @@ class RubPad extends Prop {
     for (const p of this.w.props) {
       if (!p.canRub) continue; const bx = p.bx, by = p.by, r = p.r || 10, l = this.last.get(p);
       const inside = bx > this.x - r * 0.6 && bx < this.x + this.wd + r * 0.6 && by > this.y - r * 0.8 && by < this.y + this.ht + r * 0.8;
-      if (inside && l && p.held) { const d = hyp(bx - l[0], by - l[1]); if (d > 0.4 && d < 90) { const b = p.q; p.rubWith(this.material, d); this.q -= p.q - b; this.rubT = 0.3; } }
+      /* rubbing counts whether you hold the object itself or the top of its string */
+      if (inside && l && (p.held || p.gripHeld)) { const d = hyp(bx - l[0], by - l[1]); if (d > 0.4 && d < 90) { const b = p.q; p.rubWith(this.material, d); this.q -= p.q - b; this.rubT = 0.3; } }
       this.last.set(p, [bx, by]);
     }
   }
@@ -2034,7 +2035,7 @@ function renderToolbar() {
 }
 
 /* ---------- pointer input ---------- */
-const toWorld = e => { const r = cv.getBoundingClientRect(), k = world && world.cam; let x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H; if (k) { x = x / k.s + k.x; y = y / k.s + k.y; } return [x, y]; };
+const toWorld = e => { const r = cv.getBoundingClientRect(), k = world && world.cam; if (!r.width || !r.height) return [-9999, -9999]; let x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H; if (k) { x = x / k.s + k.x; y = y / k.s + k.y; } return [x, y]; };
 cv.addEventListener('pointerdown', e => {
   if (!world || world.locked) return; const [x, y] = toWorld(e); audio.ensure();
   if (world.vdg && world.vdg.hitSwitch(x, y)) { setPower(!world.vdg.on); return; }
