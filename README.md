@@ -22,13 +22,14 @@ Controls worth knowing about:
 - **Sound** is off by default.
 - Progress (which demos are done) is kept in the browser's local storage on that device.
 
-**Free play** has no predictions and no checklist. The menu button in the header (the one showing the current simulation, with a ▾) lists every simulation: the 21 demo benches, each with nothing locked, plus a custom bench where you pick the equipment yourself. Switching from a guided demo to Free play keeps the bench you were on, and "Run it as a guided demo" goes back.
+**Free play** has no predictions and no checklist. The menu button in the header (the one showing the current simulation, with a ▾) lists every simulation: the 21 demo benches, each with nothing locked, a custom bench where you pick the equipment yourself, and an extra **Electroscope and Charged Rods** station (a metal-leaf electroscope with a positive glass rod, a neutral rod and a negative PVC rod, for polarization, conduction, induction and testing an unknown charge). Switching from a guided demo to Free play keeps the bench you were on, and "Run it as a guided demo" goes back.
 
 You can link straight to a simulation by adding to the address:
 
 - `index.html#5.2` opens Demo 5.2 as a guided demo
 - `index.html#free-5.2` opens the same bench in free play
 - `index.html#free` opens the custom bench
+- `index.html#free-scope` opens the electroscope and charged rods station
 
 ## Demos
 
